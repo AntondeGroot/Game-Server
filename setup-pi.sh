@@ -51,7 +51,7 @@ User=ubuntu
 # Grant the service read access to journald (systemd-journal) and nginx logs (adm)
 # so the admin "Ops · Error Logs" page can read them without sudo.
 SupplementaryGroups=systemd-journal adm
-ExecStart=/usr/bin/java --add-opens java.base/java.lang=ALL-UNNAMED -jar /opt/gameroom/gameroom.jar
+ExecStart=/usr/bin/java -Xmx128m -XX:MaxMetaspaceSize=128m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.lang=ALL-UNNAMED -jar /opt/gameroom/gameroom.jar
 Restart=on-failure
 
 [Install]
