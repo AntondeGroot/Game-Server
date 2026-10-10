@@ -24,6 +24,12 @@ fi
 echo "📁 Creating directory..."
 $SSH "sudo mkdir -p /opt/gameroom"
 
+echo "🧹 Capping journald disk usage..."
+# The journal is shared by every service on the Pi; without a cap it grew to ~2.8 GB.
+$SSH "sudo mkdir -p /etc/systemd/journald.conf.d && \
+      printf '[Journal]\nSystemMaxUse=300M\n' | sudo tee /etc/systemd/journald.conf.d/size.conf > /dev/null && \
+      sudo systemctl restart systemd-journald"
+
 echo "📦 Installing nginx..."
 $SSH "sudo apt-get install -y nginx"
 
