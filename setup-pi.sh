@@ -61,6 +61,8 @@ EOF"
 $SSH "sudo usermod -aG systemd-journal,adm ubuntu || true"
 $SSH "sudo systemctl daemon-reload && sudo systemctl enable gameroom"
 
+"$(dirname "$0")/setup-tomcat.sh" my-pi
+
 echo "☁️  Installing cloudflared..."
 $SSH "if ! command -v cloudflared &>/dev/null; then
   curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64 -o /tmp/cloudflared

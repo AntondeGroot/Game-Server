@@ -58,6 +58,7 @@ Run the setup script:
 
 This will:
 - Install and configure nginx
+- Install the shared Tomcat 10.1 on `127.0.0.1:8090` (`setup-tomcat.sh`, also runnable on its own). Games that ship as a WAR, such as Qwixx, deploy `<name>.war` into `/var/lib/tomcat10/webapps` and are served at `/<name>`
 - Install cloudflared and start it as a service
 - Write `/opt/gameroom/games.yaml` with the correct `baseUrl`
 
@@ -109,13 +110,7 @@ If `SSH_DOMAIN` is set in `deploy.local.conf`, `setup-pi.sh` adds an SSH ingress
 
 After this, `deploy.sh` will automatically fall back to `my-pi-ext` when `my-pi` is unreachable.
 
-**Keezenspel config** — create `/opt/keezen/application-override.yaml` on the Pi (done by Keezenspel's `setup-pi.sh`):
-
-```yaml
-server:
-  servlet:
-    context-path: /keezen
-```
+**Keezen and Qwixx** run as `keezen.war` and `qwixx.war` in the shared Tomcat (`setup-tomcat.sh`), which serves each at the context path matching its WAR name. Each game's own `deploy.sh` drops its WAR into `/var/lib/tomcat10/webapps`.
 </details>
 
 ---

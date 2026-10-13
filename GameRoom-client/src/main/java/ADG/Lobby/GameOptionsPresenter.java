@@ -84,11 +84,11 @@ public class GameOptionsPresenter implements Presenter {
     /**
      * Returns the browser-accessible base URL for the game's settings iframe.
      *
-     * The gameBaseUrl is typically an internal address (e.g. localhost:4300) that
+     * The gameBaseUrl is typically an internal address (e.g. localhost:8090/qwixx) that
      * the browser cannot reach directly — and must not be used as-is on an HTTPS
      * page (mixed-content block). Instead, we always derive the public URL from
      * the current page's origin so the iframe goes through the same reverse proxy
-     * that serves the main app (e.g. nginx routes /qwixx/ → localhost:4300).
+     * that serves the main app (e.g. nginx routes /qwixx/ → Tomcat on localhost:8090).
      *
      * Exception: if gameBaseUrl is an already-public external URL (no "localhost"),
      * use it directly — that covers deployments where the game is on its own domain.
