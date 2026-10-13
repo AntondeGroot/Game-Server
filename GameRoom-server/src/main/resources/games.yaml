@@ -2,16 +2,19 @@ games:
   available:
     - id: keezen
       name: Keezen
-      baseUrl: http://localhost:4200
+      # A WAR in the shared Tomcat (setup-tomcat.sh), like Qwixx below.
+      baseUrl: http://localhost:8090/keezen
       healthUrl: http://localhost:80/keezen/
-      unit: keezen.service
+      unit: tomcat10.service
       minPlayers: 2
       maxPlayers: 8
     - id: qwixx
       name: Qwixx
-      baseUrl: http://localhost:4300
+      # A WAR in the shared Tomcat (setup-tomcat.sh); its logs are in the Tomcat journal. Keep the
+      # host "localhost": GameOptionsPresenter treats any other host as a public URL for the iframe.
+      baseUrl: http://localhost:8090/qwixx
       healthUrl: http://localhost:80/qwixx/
-      unit: qwixx.service
+      unit: tomcat10.service
       minPlayers: 1
       maxPlayers: 5
       embeddedSettings: true
