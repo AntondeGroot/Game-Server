@@ -3,11 +3,27 @@ package ADG.Utils;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.http.client.*;
 import com.google.gwt.json.client.*;
+import ADG.Lobby.GameOption;
 import java.util.HashMap;
+import java.util.List;
 
 public class GameTranslations {
 
     private static final HashMap<String, String> translations = new HashMap<>();
+
+    /**
+     * Whether the game's i18n/{lang}.json has to be fetched for these options: only when one of
+     * them comes without a label of its own. A game that localizes its options itself (Keezen,
+     * via /game-options?locale=) serves no such file, so asking for it is two 404s per fetch.
+     */
+    public static boolean isNeededFor(List<GameOption> options) {
+        for (GameOption option : options) {
+            if (option.getLabel() == null || option.getLabel().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     public static void load(String baseUrl, Language lang, Runnable onComplete) {
         String url = baseUrl + "/i18n/" + lang.name() + ".json";

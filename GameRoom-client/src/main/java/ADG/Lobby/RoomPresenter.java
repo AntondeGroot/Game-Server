@@ -286,12 +286,17 @@ public class RoomPresenter implements Presenter {
                 String protocol = Window.Location.getProtocol();
                 String host = Window.Location.getHost();
                 String baseUrl = protocol + "//" + host + "/" + gameId;
-                GameTranslations.load(baseUrl, Cookie.getLanguage(), () -> {
+                Runnable render = () -> {
                     if (gameId.equals(knownGameId)) {
                         gameOptionDefs = defs;
                         roomView.renderOptionsDiff(gameOptionDefs, knownGameOptions);
                     }
-                });
+                };
+                if (GameTranslations.isNeededFor(defs)) {
+                    GameTranslations.load(baseUrl, Cookie.getLanguage(), render);
+                } else {
+                    render.run();
+                }
             }
         });
     }
