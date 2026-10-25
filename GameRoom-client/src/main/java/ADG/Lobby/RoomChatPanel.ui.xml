@@ -1,0 +1,15 @@
+<!DOCTYPE ui:UiBinder SYSTEM "http://dl.google.com/gwt/DTD/xhtml.ent">
+<ui:UiBinder xmlns:ui="urn:ui:com.google.gwt.uibinder"
+             xmlns:g="urn:import:com.google.gwt.user.client.ui">
+    <g:HTMLPanel styleName="room-chat">
+        <div class="room-chat-header">
+            <h2 ui:field="title" class="room-chat-title"/>
+            <g:Button ui:field="closeButton" styleName="room-icon-button room-chat-close"/>
+        </div>
+        <g:FlowPanel ui:field="messageList" styleName="room-chat-messages"/>
+        <div class="room-chat-input-row">
+            <g:TextBox ui:field="messageInputField" styleName="MessageInputField"/>
+            <g:Button ui:field="sendButton" styleName="room-send-button"/>
+        </div>
+    </g:HTMLPanel>
+</ui:UiBinder>

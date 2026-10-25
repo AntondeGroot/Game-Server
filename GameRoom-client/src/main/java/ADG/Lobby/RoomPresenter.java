@@ -22,6 +22,7 @@ import com.google.gwt.user.client.rpc.AsyncCallback;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -92,7 +93,7 @@ public class RoomPresenter implements Presenter {
     private void bind(){
         roomView.showRoomName(room.getName());
         roomView.refreshPlayerList(new HashMap<>(), new HashMap<>());
-        roomView.refreshMessages(new ArrayList<>());
+        roomView.resetForRoomEntry();
         handlerRegistrations.add(roomView.getBackToLobbyButton().addClickHandler(event -> { AudioPlayer.play(AudioPlayer.BUTTON_CLICK); backToLobby(); }));
         handlerRegistrations.add(roomView.getLeaveRoomButton().addClickHandler(event -> { AudioPlayer.play(AudioPlayer.BUTTON_CLICK); leaveRoom(); }));
         handlerRegistrations.add(roomView.getRejoinGameButton().addClickHandler(event -> { AudioPlayer.play(AudioPlayer.BUTTON_CLICK); enterGame(); }));
@@ -502,7 +503,7 @@ public class RoomPresenter implements Presenter {
         } else {
             playerListInitialized = true;
         }
-        roomView.showAbsentPlayers(absentPlayerIds(obj, updatedRoom, nowPlaying));
+        roomView.showAbsentPlayers(absentPlayers(obj, updatedRoom, nowPlaying));
 
         // The waiting-room controls below (game selection, options, start/delete,
         // creator label) are only meaningful before a game starts. Once the room is
@@ -559,12 +560,12 @@ public class RoomPresenter implements Presenter {
     }
 
     /**
-     * Seated players without the room page open. Only relevant while gathering for
-     * a game; during play everyone is expected to be on the game page instead.
-     * An empty set when the server doesn't report presence.
+     * Seated players without the room page open, names by id. Only relevant while
+     * gathering for a game; during play everyone is expected to be on the game page
+     * instead. Empty when the server doesn't report presence.
      */
-    private Set<String> absentPlayerIds(JSONObject obj, Room updatedRoom, boolean nowPlaying) {
-        Set<String> absent = new HashSet<>();
+    private Map<String, String> absentPlayers(JSONObject obj, Room updatedRoom, boolean nowPlaying) {
+        Map<String, String> absent = new LinkedHashMap<>();
         JSONValue presentVal = obj.get("presentPlayerIds");
         if (nowPlaying || presentVal == null || presentVal.isArray() == null) return absent;
         Set<String> present = new HashSet<>();
@@ -573,8 +574,8 @@ public class RoomPresenter implements Presenter {
             JSONValue v = arr.get(i);
             if (v != null && v.isString() != null) present.add(v.isString().stringValue());
         }
-        for (String playerId : updatedRoom.getPlayerNames().keySet()) {
-            if (!present.contains(playerId)) absent.add(playerId);
+        for (Map.Entry<String, String> player : updatedRoom.getPlayerNames().entrySet()) {
+            if (!present.contains(player.getKey())) absent.put(player.getKey(), player.getValue());
         }
         return absent;
     }
@@ -670,7 +671,7 @@ public class RoomPresenter implements Presenter {
                 decrypted.add(new Message(TimeUtils.convertUTCToLocal(timestampUTC), sender,
                         ChatCipher.decrypt(encrypted, room.getId())));
             }
-            roomView.refreshMessages(decrypted);
+            roomView.refreshMessages(decrypted, userNames.get(Cookie.getPlayerId()));
         } catch (Exception e) {
             GWT.log("Chat SSE parse error: " + e.getMessage());
         }

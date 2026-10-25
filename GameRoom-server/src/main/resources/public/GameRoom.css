@@ -784,110 +784,85 @@ td, th, span, p, div, label {
 
 /* =============================================
    Buttons
+   Flat and solid: one orange action per screen, outlines for the rest.
+   Hover brightens instead of lifting; keyboard focus gets an orange ring.
    ============================================= */
-/* Confirm / primary action — orange */
-.confirmButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  border-radius: var(--radius-md);
-  padding: 0 18px;
-  font-family: 'Nunito', inherit;
-  font-size: var(--font-size-base);
-  font-weight: 700;
-  cursor: pointer;
-  background: linear-gradient(145deg, #fdba74, #f97316);
-  border: 2px solid #ea580c;
-  color: #431407;
-  box-shadow: 2px 3px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.25);
-  transition: all var(--transition);
-  box-sizing: border-box;
-}
-
-.confirmButton:hover:not(:disabled):not(.confirmButton-disabled) {
-  background: linear-gradient(145deg, #fed7aa, #fb923c);
-  transform: translateY(-1px);
-  box-shadow: 3px 5px 16px rgba(249,115,22,0.5), inset 0 1px 0 rgba(255,255,255,0.25);
-}
-
-.confirmButton:active {
-  transform: translateY(1px);
-  box-shadow: 1px 1px 4px rgba(0,0,0,0.4);
-}
-
-.confirmButton:disabled,
-.confirmButton-disabled {
-  background: #5a5a5a;
-  border: 2px solid #444444;
-  color: #aaaaaa;
-  cursor: not-allowed;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
-  transform: none;
-  opacity: 1;
-  filter: grayscale(80%);
-}
-
-/* Cancel / secondary action — purple */
-.cancelButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  border-radius: var(--radius-md);
-  padding: 0 18px;
-  font-family: 'Nunito', inherit;
-  font-size: var(--font-size-base);
-  font-weight: 700;
-  cursor: pointer;
-  background: linear-gradient(145deg, #c4b5fd, #8b5cf6);
-  border: 2px solid #7c3aed;
-  color: #1e0a40;
-  box-shadow: 2px 3px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2);
-  transition: all var(--transition);
-  box-sizing: border-box;
-}
-
-.cancelButton:hover {
-  background: linear-gradient(145deg, #ddd6fe, #a78bfa);
-  transform: translateY(-1px);
-  box-shadow: 3px 5px 16px rgba(139,92,246,0.45), inset 0 1px 0 rgba(255,255,255,0.2);
-}
-
-.cancelButton:active {
-  transform: translateY(1px);
-  box-shadow: 1px 1px 4px rgba(0,0,0,0.4);
-}
-
-/* Delete — red/danger */
+.confirmButton,
+.cancelButton,
 .deleteButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 40px;
-  border-radius: var(--radius-md);
+  gap: 8px;
+  min-height: 44px;
   padding: 0 18px;
+  border-radius: var(--radius-lg);
   font-family: 'Nunito', inherit;
   font-size: var(--font-size-base);
   font-weight: 700;
   cursor: pointer;
-  background: linear-gradient(145deg, #fca5a5, #ef4444);
-  border: 2px solid #dc2626;
-  color: #450a0a;
-  box-shadow: 2px 3px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2);
-  transition: all var(--transition);
   box-sizing: border-box;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+
+/* Primary action — solid orange */
+.confirmButton {
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  color: #2a1205;
+}
+
+.confirmButton:hover:not(:disabled):not(.confirmButton-disabled) {
+  background: #fdba74;
+  border-color: #fdba74;
+}
+
+.confirmButton:disabled,
+.confirmButton-disabled {
+  background: var(--color-accent-light);
+  border: 1px dashed rgba(251, 146, 60, 0.5);
+  color: #fdba74;
+  cursor: not-allowed;
+}
+
+/* Secondary action — purple outline */
+.cancelButton {
+  background: transparent;
+  border: 1px solid rgba(139, 92, 246, 0.55);
+  color: #c4b5fd;
+}
+
+.cancelButton:hover {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+/* Destructive action — red outline */
+.deleteButton {
+  background: transparent;
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  color: var(--color-error);
 }
 
 .deleteButton:hover {
-  background: linear-gradient(145deg, #fecaca, #f87171);
-  transform: translateY(-1px);
-  box-shadow: 3px 5px 16px rgba(239,68,68,0.45), inset 0 1px 0 rgba(255,255,255,0.2);
+  background: rgba(248, 113, 113, 0.12);
+  border-color: var(--color-error);
 }
 
+.confirmButton:active:not(:disabled),
+.cancelButton:active,
 .deleteButton:active {
-  transform: translateY(1px);
-  box-shadow: 1px 1px 4px rgba(0,0,0,0.4);
+  transform: scale(0.98);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* A label span inside a button takes the button's colour, not the global text colour. */
+button span {
+  color: inherit;
 }
 
 .gwt-Button {
@@ -899,17 +874,11 @@ td, th, span, p, div, label {
   border: 1px solid rgba(139, 92, 246, 0.4);
   background: rgba(139, 92, 246, 0.15);
   color: var(--color-text-primary);
-  transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+  transition: background var(--transition);
 }
 
 .gwt-Button:hover {
   background: rgba(139, 92, 246, 0.3);
-  box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
-}
-
-.gwt-Button:active {
-  transform: translateY(1px);
-  box-shadow: none;
 }
 
 .randomNameButton {
@@ -934,79 +903,37 @@ td, th, span, p, div, label {
   transform: translateY(1px);
 }
 
-.createRoomButton {
-  border-radius: var(--radius-md);
-  font-family: 'Nunito', inherit;
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  padding: 6px 16px;
-  background: linear-gradient(145deg, #fdba74, #f97316);
-  border: 2px solid #ea580c;
-  color: #431407;
-  cursor: pointer;
-  box-shadow: 2px 3px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.25);
-  transition: all var(--transition);
-  text-shadow: 0 1px 1px rgba(255,255,255,0.2);
-}
-
-.createRoomButton:hover {
-  background: linear-gradient(145deg, #fed7aa, #fb923c);
-  transform: translateY(-1px);
-  box-shadow: 3px 5px 16px rgba(249,115,22,0.5), inset 0 1px 0 rgba(255,255,255,0.25);
-}
-
-.createRoomButton:active {
-  transform: translateY(1px);
-  box-shadow: 1px 1px 4px rgba(0,0,0,0.4);
-}
-
+.createRoomButton,
 .joinRoomButton {
   border-radius: var(--radius-md);
   font-family: 'Nunito', inherit;
+  font-weight: 700;
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  color: #2a1205;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.createRoomButton {
+  font-size: var(--font-size-base);
+  padding: 8px 16px;
+}
+
+.joinRoomButton {
   padding: 4px 12px;
   font-size: var(--font-size-sm);
-  font-weight: 600;
-  background: linear-gradient(145deg, #fdba74, #f97316);
-  border: 2px solid #ea580c;
-  color: #431407;
-  cursor: pointer;
-  box-shadow: 2px 2px 8px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.2);
-  transition: all var(--transition);
 }
 
+.createRoomButton:hover,
 .joinRoomButton:hover {
-  background: linear-gradient(145deg, #fed7aa, #fb923c);
-  transform: translateY(-1px);
-  box-shadow: 2px 4px 14px rgba(249,115,22,0.5);
+  background: #fdba74;
+  border-color: #fdba74;
 }
 
+.createRoomButton:active,
 .joinRoomButton:active {
-  transform: translateY(1px);
-}
-
-.sendButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  font-family: 'Nunito', inherit;
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  padding: 0 16px;
-  background: linear-gradient(145deg, #fdba74, #f97316);
-  border: 2px solid #ea580c;
-  border-radius: var(--radius-md);
-  color: #431407;
-  cursor: pointer;
-  box-shadow: 2px 3px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.25);
-  transition: all var(--transition);
-  box-sizing: border-box;
-}
-
-.sendButton:hover {
-  background: linear-gradient(145deg, #fed7aa, #fb923c);
-  transform: translateY(-1px);
-  box-shadow: 2px 4px 14px rgba(249,115,22,0.5);
+  transform: scale(0.98);
 }
 
 /* =============================================
@@ -1039,66 +966,142 @@ td, th, span, p, div, label {
 }
 
 /* =============================================
-   Chat Area
+   Chat
+   A side column on wide screens; on phones a bottom sheet behind the chat button.
    ============================================= */
-.MessageDisplayField {
-  overflow-y: scroll;
-  font-size: var(--font-size-base);
-  font-family: 'Nunito', inherit;
-  color: var(--color-text-primary);
-  background-color: rgba(0,0,0,0.35);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 10px;
-  margin: 8px 0;
-  width: 660px;
-  height: 250px;
-  resize: none;
-  box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+.room-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   box-sizing: border-box;
+  padding: 16px;
+  background: rgba(21, 12, 41, 0.85);
+}
+
+.room-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+}
+
+.room-chat-title {
+  margin: 0;
+  font-family: 'Rajdhani', system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.room-chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px;
   scrollbar-width: thin;
-  scrollbar-color: rgba(139, 92, 246, 0.5) rgba(255, 255, 255, 0.04);
+  scrollbar-color: rgba(139, 92, 246, 0.5) transparent;
 }
 
-.MessageDisplayField::-webkit-scrollbar {
-  width: 6px;
+/* Pushes a short conversation to the bottom while keeping a long one scrollable. */
+.room-chat-messages > :first-child {
+  margin-top: auto;
 }
 
-.MessageDisplayField::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 3px;
+.chat-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  max-width: 85%;
+  align-self: flex-start;
 }
 
-.MessageDisplayField::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.5);
-  border-radius: 3px;
+.chat-msg-own {
+  align-self: flex-end;
+  align-items: flex-end;
 }
 
-.MessageDisplayField::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.8);
+.chat-msg-meta {
+  display: flex;
+  gap: 6px;
 }
 
+.chat-msg-meta span {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.chat-msg-meta .chat-msg-sender {
+  color: #c4b5fd;
+  font-weight: 700;
+}
+
+.chat-msg-text {
+  background: #2a1b4d;
+  padding: 9px 12px;
+  border-radius: 4px 14px 14px 14px;
+  font-size: 15px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.chat-msg-own .chat-msg-text {
+  background: var(--color-accent);
+  color: #2a1205;
+  font-weight: 600;
+  border-radius: 14px 4px 14px 14px;
+}
+
+.room-chat-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* 16px font keeps iOS from zooming in on focus. */
 .MessageInputField {
-  font-size: var(--font-size-base);
-  font-family: 'Nunito', inherit;
-  color: var(--color-text-primary);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 8px 10px;
-  margin-right: 8px;
-  margin-bottom: 10px;
-  width: 590px;
-  height: 40px;
-  resize: none;
-  background-color: var(--color-bg-input);
-  transition: border-color var(--transition), box-shadow var(--transition);
-  outline: none;
+  flex: 1;
+  min-width: 0;
+  height: 48px;
   box-sizing: border-box;
+  padding: 0 14px;
+  font-family: 'Nunito', inherit;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  background: #150c29;
+  border: 1px solid rgba(139, 92, 246, 0.45);
+  border-radius: var(--radius-lg);
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
 }
 
 .MessageInputField:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px var(--color-primary-glow);
+}
+
+.room-send-button {
+  flex: 0 0 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--color-accent);
+  border: 0;
+  border-radius: var(--radius-lg);
+  color: #2a1205;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.room-send-button:hover {
+  background: #fdba74;
 }
 
 /* =============================================
@@ -1190,27 +1193,21 @@ td, th, span, p, div, label {
 }
 
 /* =============================================
-   Divider
-   ============================================= */
-.custom-hr {
-  border: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), rgba(251, 146, 60, 0.5), transparent);
-  margin: 6px 0 0 0;
-  width: 100%;
-}
-
-/* =============================================
    Player Force Simulation
    ============================================= */
+/* Grows into the room's free height; D3 measures it when it renders. */
 .playerSimulation {
   width: 100%;
-  height: 400px;
+  flex: 1 1 auto;
+  min-height: 200px;
+  max-height: 340px;
   position: relative;
   overflow: hidden;
 }
 
 .playerSimulation svg {
+  position: absolute;
+  inset: 0;
   display: block;
 }
 
@@ -1228,40 +1225,241 @@ td, th, span, p, div, label {
 }
 
 /* =============================================
-   Room Panel Layout Helper
+   Room layout
+   Phone: one column with the header, players, game card, and a bottom dock
+   holding the start button and the chat button. From 900 px the chat becomes
+   a side column (see the Room layout media queries at the end of the file).
    ============================================= */
+.room {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 16px);
+  padding: 0 16px;
+}
 
-/* full-height must be 100 % wide so that margin:auto on bottom-aligned has a
-   wide enough parent to actually center against.                               */
-table.full-height {
+.room-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
-.bottom-aligned {
-  /* Removed absolute-bottom pinning: game-config panel now flows above chat
-     in the normal document flow, so absolute positioning causes overlap.
-     width:max-content makes the GWT table shrink-wrap; margin:auto then
-     centers it inside the 100%-wide full-height parent.                       */
-  width: max-content;
-  margin: 16px auto 0;
+.room-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
-.startRowPanel {
+.room-header {
+  position: relative;
+  display: flex;
   align-items: center;
+  gap: 8px;
+  min-height: 60px;
+}
+
+.room-header .room-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: clamp(1.2rem, 5.5vw, 2rem);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.room-header .room-title-medium { font-size: clamp(1.05rem, 4.6vw, 1.7rem); letter-spacing: 0.05em; }
+.room-header .room-title-long   { font-size: clamp(0.95rem, 4vw, 1.4rem); letter-spacing: 0.02em; }
+
+.room-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 8px 0 2px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: #c4b5fd;
+  font-family: 'Nunito', inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color var(--transition);
+}
+
+.room-back-button:hover {
+  color: var(--color-text-primary);
+}
+
+.room-icon-button {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: rgba(139, 92, 246, 0.10);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.room-icon-button:hover {
+  background: rgba(139, 92, 246, 0.22);
+}
+
+/* ── ⋯ menu: language and the rarely used, destructive actions ── */
+.room-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(8, 4, 20, 0.35);
+}
+
+.room-menu {
+  position: absolute;
+  top: calc(100% - 4px);
+  right: 0;
+  z-index: 21;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: #22163f;
+  border: 1px solid rgba(139, 92, 246, 0.45);
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+}
+
+.room-menu-language {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 4px 6px 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+.room-menu-language-label {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.room-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: 'Nunito', inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.room-menu-item:hover {
+  background: rgba(139, 92, 246, 0.18);
+}
+
+.room-menu-item-danger {
+  color: var(--color-error);
+  font-weight: 700;
+}
+
+.room-menu-item-danger:hover {
+  background: rgba(248, 113, 113, 0.12);
+}
+
+/* ── Bottom dock: the one big action, the chat button and the status lines ── */
+.room-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+  padding: 4px 0 calc(16px + env(safe-area-inset-bottom));
+}
+
+.room-dock-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.room-dock-row .confirmButton {
+  flex: 1;
+  width: auto;
+  min-height: 54px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.room-chat-button {
+  width: 54px;
+  height: 54px;
+}
+
+.room-chat-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  border: 2px solid #150c29;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .startInfoLabel {
-  font-family: 'Nunito', inherit;
-  font-size: 0.88em;
-  margin-left: 12px;
-  padding: 4px 10px;
-  border-radius: 6px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #c9bfe8;
 }
 
-.startInfoLabel-waiting {
-  color: #fde68a;
-  background: rgba(253, 230, 138, 0.08);
-  border: 1px solid rgba(253, 230, 138, 0.25);
+.room-absent-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #c9bfe8;
+}
+
+/* Echoes the red ring around an absent player's picture. */
+.room-absent-label::before {
+  content: "";
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid #ef4444;
 }
 
 /* =============================================
@@ -1665,11 +1863,6 @@ table.full-height {
     max-width: 100%;
   }
 
-  /* ── Room title: font scales with name length ── */
-  h1.room-title-short  { font-size: clamp(1.8rem, 9vw,   2.5rem); letter-spacing: 0.05em; }
-  h1.room-title-medium { font-size: clamp(1.2rem, 6vw,   2rem);   letter-spacing: 0.03em; }
-  h1.room-title-long   { font-size: clamp(0.9rem, 4.5vw, 1.6rem); letter-spacing: 0; }
-
   /* ── Section labels ── */
   .section-title {
     font-size: 1.4em;
@@ -2004,172 +2197,51 @@ table.full-height {
   .game-options-field-inline:has(.game-options-checkbox) .game-options-description {
     margin-left: 0;
   }
-
-  /* ── Room View ───────────────────────────────────────────────────────────── */
-
-  /* Flex-column layout: simulation grows to fill space, chat stays at bottom */
-  table.roomMainPanel {
-    display: flex;
-    flex-direction: column;
-    height: calc(100dvh - 8px);
-    min-height: unset;
-  }
-
-  table.roomMainPanel > tbody {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    width: 100%;
-  }
-
-  table.roomMainPanel > tbody > tr {
-    display: flex;
-    flex-direction: column;
-    flex: 0 0 auto;
-    width: 100%;
-  }
-
-  table.roomMainPanel > tbody > tr > td {
-    width: 100%;
-  }
-
-  /* Simulation row grows to fill all space between lang-selector and chat */
-  table.roomMainPanel > tbody > tr:nth-child(3) {
-    flex: 1;
-    min-height: 0;
-  }
-
-  table.roomMainPanel > tbody > tr:nth-child(3) > td {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-  }
-
-  /* Simulation div and SVG fill the available height */
-  .playerSimulation {
-    flex: 1;
-    /* Drop height:100% — flex:1 is enough, and mixing both in a table-as-flex
-       layout can cause a circular dependency that inflates the element height.  */
-    min-height: 120px;
-    max-height: 220px;  /* cap: prevents profiles from dominating the screen */
-    overflow: hidden;   /* explicit clip: guards against SVG nodes drifting out */
-  }
-
-  .playerSimulation svg {
-    height: 100%;
-    display: block;
-  }
-
-  /* Ensure the game-config panel always sits above the simulation's stacking
-     context so the drop-down and checkboxes remain clickable.                 */
-  .room-game-config {
-    position: relative;
-    z-index: 1;
-  }
-
-  /* Undo absolute bottom-pinning — chat flows at the bottom of the flex column */
-  .bottom-aligned {
-    position: static;
-    transform: none;
-    margin-bottom: 0;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  /* Convert startRowPanel table into flex so buttons wrap on small screens */
-  table.startRowPanel,
-  table.startRowPanel > tbody,
-  table.startRowPanel > tbody > tr {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-  }
-  table.startRowPanel > tbody > tr > td {
-    display: block;
-    flex: 0 0 auto;
-  }
-
-  /* Ensure the full-height and bottom-aligned tables fill container width.
-     Only set width — do NOT change display so table layout still works. */
-  table.full-height,
-  table.bottom-aligned {
-    width: 100%;
-  }
-
-  table.full-height > tbody > tr > td,
-  table.bottom-aligned > tbody > tr > td {
-    width: 100%;
-  }
-
-  /* The input+button row contains a single <td> which itself wraps an anonymous
-     GWT HorizontalPanel rendered as a plain <table> with no class.
-     Target that inner table directly: make it full-width and give the
-     input td all remaining space so the send button sits at the right edge. */
-  table.bottom-aligned > tbody > tr:last-child > td > table {
-    width: 100%;
-  }
-
-  table.bottom-aligned > tbody > tr:last-child > td > table > tbody > tr > td:first-child {
-    width: 100%;
-  }
-
-  /* Full-width chat display at 150px height */
-  .MessageDisplayField {
-    width: 100% !important;
-    height: 100px !important;
-    margin: 8px 0;
-    box-sizing: border-box;
-  }
-
-  /* Full-width message input; 16px prevents iOS auto-zoom on focus */
-  .MessageInputField {
-    width: 100% !important;
-    font-size: 16px;
-    margin-right: 0;
-    padding-right: 8px;
-    box-sizing: border-box;
-  }
 }
 
-/* ── Room game configuration panel ─────────────────────────── */
-.room-game-config {
-  padding: 10px 0 6px;
-  border-bottom: 1px solid rgba(139, 92, 246, 0.2);
-  margin: 0 auto 10px;
-  /* Cap width on desktop so the selector doesn't span the full page */
-  max-width: 660px;
-  width: 100%;
-  box-sizing: border-box;
+/* ── Room game card: game, options and the creator's room settings ─────────── */
+.room-card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(29, 18, 54, 0.92);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 16px;
 }
 
 .room-game-row {
   display: flex;
-  align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
 }
 
 .room-game-select {
   flex: 1;
-  max-width: 280px;   /* prevents absurd width on desktop; flex:1 still fills narrow mobile containers */
+  min-width: 0;
+  height: 44px;
   appearance: none;
   -webkit-appearance: none;
   color-scheme: dark;
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: #150c29;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239485c0' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 10px center;
-  border: 1px solid rgba(139, 92, 246, 0.4);
-  border-radius: var(--radius-md);
+  background-position: right 14px center;
+  border: 1px solid rgba(139, 92, 246, 0.45);
+  border-radius: var(--radius-lg);
   color: var(--color-text-primary);
   font-family: 'Nunito', sans-serif;
-  font-size: var(--font-size-md);
-  padding: 6px 32px 6px 10px;   /* room for the caret */
+  font-size: 16px;
+  font-weight: 700;
+  padding: 0 36px 0 14px;
   cursor: pointer;
   outline: none;
+}
+
+.room-game-select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 /* Muted, italic while the "- Select a game -" placeholder is the current value,
@@ -2177,6 +2249,7 @@ table.full-height {
 .room-game-select:has(option[value=""]:checked) {
   color: var(--color-text-muted);
   font-style: italic;
+  font-weight: 600;
 }
 
 .room-game-select option {
@@ -2191,117 +2264,163 @@ table.full-height {
 }
 
 .room-game-select:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: default;
 }
 
 .optionsButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 14px;
   background: transparent;
-  border: 1px solid rgba(139, 92, 246, 0.4);
-  border-radius: var(--radius-md);
-  color: rgba(148, 133, 192, 0.85);
+  border: 1px solid rgba(139, 92, 246, 0.55);
+  border-radius: var(--radius-lg);
+  color: #c4b5fd;
   font-family: 'Nunito', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 5px 12px;
-  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
   white-space: nowrap;
-  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
 }
 
 .optionsButton:hover:not([disabled]) {
-  background: rgba(139, 92, 246, 0.12);
-  border-color: rgba(139, 92, 246, 0.7);
-  color: #c4b5fd;
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
 }
 
 .optionsButton[disabled] {
-  opacity: 0.35;
+  opacity: 0.4;
   cursor: default;
 }
 
 .room-options-diff {
-  font-size: 12px;
-  color: rgba(148, 133, 192, 0.75);
-  padding-left: 2px;
-  margin-bottom: 4px;
-  min-height: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+.room-options-diff:empty {
+  display: none;
 }
 
 .room-options-diff ul.options-diff-list {
-  margin: 2px 0 0;
+  margin: 0;
   padding-left: 18px;
   list-style: disc;
 }
 
-.room-options-diff ul.options-diff-list li {
-  line-height: 1.6;
+/* Read-only password for players who are not the creator */
+.room-password-badge {
+  align-self: flex-start;
+}
+
+.room-password-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.18);
+  color: #ddd6fe;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  user-select: all; /* one tap selects the whole password */
+  -webkit-user-select: all;
+}
+
+.room-password-chip .room-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Creator only: a folding "Room settings" section with the password on its header */
+.room-settings {
+  display: flex;
+  flex-direction: column;
+  padding-top: 4px;
+  border-top: 1px solid rgba(139, 92, 246, 0.22);
+}
+
+.room-settings-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--color-text-primary);
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.room-settings-label {
+  flex: 1;
+}
+
+.room-settings-toggle > .room-icon {
+  color: var(--color-text-muted);
+  transition: transform var(--transition);
+}
+
+.room-settings-open .room-settings-toggle > .room-icon {
+  transform: rotate(180deg);
 }
 
 .room-permissions-panel {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-  color: rgba(148, 133, 192, 0.8);
-  margin-top: 4px;
+  padding-bottom: 4px;
 }
 
-/* Each GWT CheckBox renders as span > input + label; lay the round box and its
-   label out on one line with comfortable spacing. */
+/* Each GWT CheckBox renders as span > input + label; label left, box right. */
 .room-permissions-panel .gwt-CheckBox {
   display: flex;
+  flex-direction: row-reverse;
+  justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  min-height: 44px;
   cursor: pointer;
-  padding: 5px 0;
-  line-height: 1.4;
 }
 
 .room-permissions-panel .gwt-CheckBox label {
+  font-size: 15px;
+  line-height: 1.4;
+  color: #ddd6fe;
   cursor: pointer;
 }
 
-/* Password badge: visible to all room members when a password is active */
-.room-password-badge {
-  margin-top: 6px;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  color: #c4b5fd;
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  border-radius: 6px;
-  padding: 2px 10px;
-  user-select: all; /* one click selects the whole password */
-}
-
-/* Creator's editable password row (shown instead of the read-only badge) */
 .room-password-edit {
   display: flex;
-  align-items: center;
   gap: 8px;
   margin-top: 6px;
 }
 
-.room-password-edit-icon {
-  font-size: 15px;
-  line-height: 1;
-}
-
 .room-password-input {
-  width: 120px;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  box-sizing: border-box;
+  padding: 0 14px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #ede8ff;
-  background: rgba(139, 92, 246, 0.15);
+  color: var(--color-text-primary);
+  background: #150c29;
   border: 1px solid rgba(139, 92, 246, 0.45);
-  border-radius: 6px;
-  padding: 3px 10px;
+  border-radius: var(--radius-lg);
   outline: none;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
@@ -2311,25 +2430,83 @@ table.full-height {
   box-shadow: 0 0 0 2px var(--color-primary-glow);
 }
 
-.room-password-regen {
-  flex-shrink: 0;
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.45);
-  border-radius: 6px;
-  color: #c4b5fd;
-  font-size: 14px;
-  line-height: 1;
-  padding: 4px 8px;
-  cursor: pointer;
-  transition: background var(--transition), border-color var(--transition), transform var(--transition);
+/* Beats the phone rule that stretches every .cancelButton to full width. */
+.room .room-password-regen {
+  width: auto;
+  flex: 0 0 auto;
+  padding: 0 14px;
+  font-size: 15px;
 }
 
-.room-password-regen:hover {
-  background: rgba(139, 92, 246, 0.28);
-  border-color: rgba(139, 92, 246, 0.7);
+/* ── Room layout: chat as a bottom sheet on phones, a side column from 900 px ── */
+@media (max-width: 899px) {
+  .room-chat {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 31;
+    height: min(70dvh, 560px);
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    background: #1d1236;
+    border-top: 1px solid rgba(139, 92, 246, 0.45);
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.5);
+    transform: translateY(100%);
+    visibility: hidden;
+    transition: transform 0.25s ease, visibility 0s linear 0.25s;
+  }
+
+  .room-chat-open .room-chat {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.25s ease;
+  }
+
+  .room-chat-backdrop {
+    display: none;
+    z-index: 30;
+    background: rgba(8, 4, 20, 0.6);
+  }
+
+  .room-chat-open .room-chat-backdrop {
+    display: block;
+  }
 }
 
-.room-password-regen:active { transform: scale(0.92); }
+@media (min-width: 900px) {
+  .room {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 24px;
+    padding-right: 0;
+  }
+
+  .room-chat {
+    position: sticky;
+    top: 0;
+    height: calc(100dvh - 18px);
+    border-left: 1px solid rgba(139, 92, 246, 0.18);
+    border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+  }
+
+  .room-chat-close,
+  .room-chat-button,
+  .room-chat-backdrop {
+    display: none;
+  }
+
+  .room .playerSimulation {
+    min-height: 300px;
+    max-height: 380px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room-chat {
+    transition: none;
+  }
+}
 
 /* Parks preloaded sprite-sheet images off-screen so the browser keeps them
    cached without them being visible or affecting layout. */
