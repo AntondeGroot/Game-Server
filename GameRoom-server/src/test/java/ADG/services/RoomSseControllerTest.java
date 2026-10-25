@@ -97,12 +97,33 @@ class RoomSseControllerTest {
         conn.disconnect();
     }
 
+    // ── presence ─────────────────────────────────────────────────────────────
+
+    @Test
+    void reportsPlayersWithTheRoomPageOpen() throws Exception {
+        Room room = seedRoom("Epsilon");
+        HttpURLConnection conn = openSse("/rooms/" + room.getId() + "/stream", "playerid=player-1");
+
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+            String dataLine = reader.readLine();
+            assertThat(dataLine).contains("\"presentPlayerIds\":[\"player-1\"]");
+            // Room fields sit at the top level, next to presentPlayerIds.
+            assertThat(dataLine).contains("\"name\":\"Epsilon\"").doesNotContain("\"room\":");
+        }
+        conn.disconnect();
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private HttpURLConnection openSse(String path) throws Exception {
+        return openSse(path, null);
+    }
+
+    private HttpURLConnection openSse(String path, String cookie) throws Exception {
         URL url = new URL("http://localhost:" + port + path);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestProperty("Accept", "text/event-stream");
+        if (cookie != null) conn.setRequestProperty("Cookie", cookie);
         conn.setConnectTimeout(5000);
         conn.setReadTimeout(5000);
         conn.connect();
