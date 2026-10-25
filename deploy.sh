@@ -43,6 +43,10 @@ $SCP GameRoom-server/src/main/resources/room-names.txt $TARGET:/home/ubuntu/room
 echo "📁 Installing..."
 $SSH "sudo mkdir -p /opt/gameroom && sudo mv /home/ubuntu/gameroom.jar /opt/gameroom/gameroom.jar && sudo cp /home/ubuntu/room-names.txt /opt/gameroom/room-names.txt && rm -f /home/ubuntu/room-names.txt"
 
+# 256 MB heap: at 128 MB a burst of profile-picture requests at game start ran the
+# server out of memory, and a restart loses every room.
+GAMEROOM_EXEC="/usr/bin/java -Xmx256m -XX:MaxMetaspaceSize=128m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.lang=ALL-UNNAMED -jar /opt/gameroom/gameroom.jar"
+
 echo "⚙️ Ensuring systemd service exists..."
 $SSH "
 if [ ! -f /etc/systemd/system/gameroom.service ]; then
@@ -54,7 +58,7 @@ After=network.target
 [Service]
 User=ubuntu
 SupplementaryGroups=systemd-journal adm
-ExecStart=/usr/bin/java -Xmx128m -XX:MaxMetaspaceSize=128m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -XX:+ExitOnOutOfMemoryError --add-opens java.base/java.lang=ALL-UNNAMED -jar /opt/gameroom/gameroom.jar
+ExecStart=$GAMEROOM_EXEC
 Restart=on-failure
 
 [Install]
@@ -72,6 +76,17 @@ $SSH "sudo mkdir -p /etc/systemd/system/gameroom.service.d && \
   sudo tee /etc/systemd/system/gameroom.service.d/logs.conf > /dev/null << 'EOF'
 [Service]
 SupplementaryGroups=systemd-journal adm
+EOF
+  sudo systemctl daemon-reload"
+
+echo "⚙️ Ensuring JVM options..."
+# A drop-in as well, because the base unit above is only written on a fresh install.
+# The empty ExecStart= clears the base unit's command before setting the current one.
+$SSH "sudo mkdir -p /etc/systemd/system/gameroom.service.d && \
+  sudo tee /etc/systemd/system/gameroom.service.d/jvm.conf > /dev/null << 'EOF'
+[Service]
+ExecStart=
+ExecStart=$GAMEROOM_EXEC
 EOF
   sudo systemctl daemon-reload"
 
