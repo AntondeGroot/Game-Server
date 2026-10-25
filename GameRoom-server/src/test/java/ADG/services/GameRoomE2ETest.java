@@ -250,7 +250,7 @@ class GameRoomE2ETest {
 
         enterRoomAs(room, creatorId, "Leaver");
 
-        driver.findElement(By.className("cancelButton")).click();
+        driver.findElement(By.className("room-back-button")).click();
 
         new WebDriverWait(driver, Duration.ofSeconds(10))
                 .until(ExpectedConditions.presenceOfElementLocated(By.className("room-table-row")));

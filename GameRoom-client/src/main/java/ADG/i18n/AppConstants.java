@@ -81,4 +81,13 @@ public interface AppConstants extends Constants {
     String confirmDeleteRoom();
     String confirmLeavePlayingRoom();
     String confirmEndGame();
+
+    // Room layout
+    String lobby();
+    String roomMenu();
+    String language();
+    String chat();
+    String closeChat();
+    String messagePlaceholder();
+    String newPassword();
 }

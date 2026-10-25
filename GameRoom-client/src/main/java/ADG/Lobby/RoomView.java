@@ -9,13 +9,13 @@ import java.util.HashMap;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.dom.client.Element;
 import com.google.gwt.dom.client.HeadingElement;
+import com.google.gwt.safehtml.shared.SafeHtmlUtils;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.client.ui.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class RoomView extends Composite {
 
@@ -24,112 +24,127 @@ public class RoomView extends Composite {
     interface RoomUiBinder extends UiBinder<Widget, RoomView> {}
     private static RoomUiBinder uiBinder = GWT.create(RoomUiBinder.class);
 
-    @UiField
-    VerticalPanel roomPanel;
+    @UiField HTMLPanel root;
+    @UiField HeadingElement roomTitle;
+    @UiField Button backToLobbyButton;
+    @UiField Button menuButton;
+    @UiField HTMLPanel playerPanel;
 
-    @UiField
-    HeadingElement roomTitle;
+    @UiField FlowPanel gameConfigPanel;
+    @UiField ListBox gameSelectorBox;
+    @UiField Button optionsButton;
+    @UiField HTML optionsDiffList;
+    @UiField HTML passwordDisplayLabel;
+    @UiField FlowPanel permissionsPanel;
+    @UiField Button settingsToggleButton;
+    @UiField FlowPanel settingsBody;
+    @UiField CheckBox anyPlayerCanSelectGameCheckbox;
+    @UiField CheckBox anyPlayerCanSetOptionsCheckbox;
+    @UiField CheckBox passwordRequiredCheckbox;
+    @UiField FlowPanel passwordEditPanel;
+    @UiField TextBox passwordEditInput;
+    @UiField Button regeneratePasswordButton;
 
-    @UiField
-    Button backToLobbyButton;
+    @UiField Button startGameButton;
+    @UiField Button rejoinGameButton;
+    @UiField Button chatButton;
+    @UiField Label startInfoLabel;
+    @UiField Label absentPlayersLabel;
 
-    @UiField
-    Button leaveRoomButton;
+    @UiField FocusPanel chatBackdrop;
+    @UiField RoomChatPanel chatPanel;
 
-    @UiField
-    Button deleteRoomButton;
-
-    @UiField
-    Button startGameButton;
-
-    @UiField
-    Button rejoinGameButton;
-
-    @UiField
-    Button endGameButton;
-
-    @UiField
-    HTMLPanel langSelectorRow;
-
-    @UiField
-    HTMLPanel playerPanel;
-
-    @UiField
-    Button sendMessageButton;
-
-    @UiField
-    Label startInfoLabel;
-
-    @UiField
-    FlowPanel gameConfigPanel;
-
-    @UiField
-    ListBox gameSelectorBox;
-
-    @UiField
-    Button optionsButton;
-
-    @UiField
-    HTML optionsDiffList;
-
-    @UiField
-    FlowPanel permissionsPanel;
-
-    @UiField
-    CheckBox anyPlayerCanSelectGameCheckbox;
-
-    @UiField
-    CheckBox anyPlayerCanSetOptionsCheckbox;
-
-    @UiField
-    CheckBox passwordRequiredCheckbox;
-
-    @UiField
-    Label passwordDisplayLabel;
-
-    @UiField
-    FlowPanel passwordEditPanel;
-
-    @UiField
-    TextBox passwordEditInput;
-
-    @UiField
-    Button regeneratePasswordButton;
+    @UiField FocusPanel menuBackdrop;
+    @UiField FlowPanel menuPanel;
+    @UiField FlowPanel languageRow;
+    @UiField Button leaveRoomButton;
+    @UiField Button endGameButton;
+    @UiField Button deleteRoomButton;
 
     private String lastRenderedPassword;
-
-    @UiField
-    TextArea messageDisplayField;
-
-    @UiField
-    TextBox messageInputField;
+    private boolean chatOpen = false;
+    private int messageCount = 0;
+    private int seenMessageCount = -1; // -1 until the history arrives, which counts as read
 
     public RoomView() {
         initWidget(uiBinder.createAndBindUi(this));
+        backToLobbyButton.setHTML(RoomIcons.withLabel(RoomIcons.BACK, I18n.c().lobby()));
+        backToLobbyButton.setTitle(I18n.c().backToLobby());
+        menuButton.setHTML(RoomIcons.MORE);
+        menuButton.getElement().setAttribute("aria-label", I18n.c().roomMenu());
         startGameButton.setText(I18n.c().startGame());
         rejoinGameButton.setText(I18n.c().rejoinGame());
-        endGameButton.setText(I18n.c().endGame());
-        backToLobbyButton.setText(I18n.c().backToLobby());
-        leaveRoomButton.setText(I18n.c().leaveRoom());
-        deleteRoomButton.setText(I18n.c().deleteRoom());
-        sendMessageButton.setText(I18n.c().send());
-        langSelectorRow.add(new LanguageSelectorWidget());
-        optionsButton.setText("⚙ " + I18n.c().optionsButtonLabel());
+        optionsButton.setHTML(RoomIcons.withLabel(RoomIcons.OPTIONS, I18n.c().optionsButtonLabel()));
         optionsButton.setEnabled(false);
+        initRoomSettings();
+        initMenu();
+        initChat();
+    }
+
+    private void initRoomSettings() {
         anyPlayerCanSelectGameCheckbox.setText(I18n.c().anyPlayerCanSelectGame());
         anyPlayerCanSetOptionsCheckbox.setText(I18n.c().anyPlayerCanSetOptions());
         passwordRequiredCheckbox.setText(I18n.c().requirePassword());
         permissionsPanel.setVisible(false);
+        settingsToggleButton.addClickHandler(e -> setSettingsOpen(!settingsBody.isVisible()));
+        renderSettingsToggle();
 
-        regeneratePasswordButton.setText("🎲");
+        regeneratePasswordButton.setHTML(RoomIcons.withLabel(RoomIcons.REGENERATE, I18n.c().newPassword()));
         regeneratePasswordButton.setTitle(I18n.c().regeneratePassword());
         passwordEditInput.setMaxLength(20);
         passwordEditInput.setTitle(I18n.c().editPasswordHint());
+        passwordEditInput.getElement().setAttribute("aria-label", I18n.c().editPasswordHint());
         passwordEditInput.getElement().setAttribute("autocomplete", "off");
         passwordEditInput.getElement().setAttribute("autocapitalize", "characters");
         passwordEditInput.getElement().setAttribute("spellcheck", "false");
         passwordEditInput.getElement().setAttribute("data-lpignore", "true");
         passwordEditInput.getElement().setAttribute("data-1p-ignore", "true");
+    }
+
+    /** The ⋯ menu holds the rarely used and destructive actions, so they stay out of the way. */
+    private void initMenu() {
+        Label languageLabel = new Label(I18n.c().language());
+        languageLabel.setStyleName("room-menu-language-label");
+        languageRow.add(languageLabel);
+        languageRow.add(new LanguageSelectorWidget());
+        leaveRoomButton.setHTML(RoomIcons.withLabel(RoomIcons.LEAVE, I18n.c().leaveRoom()));
+        endGameButton.setHTML(RoomIcons.withLabel(RoomIcons.STOP, I18n.c().endGame()));
+        deleteRoomButton.setHTML(RoomIcons.withLabel(RoomIcons.TRASH, I18n.c().deleteRoom()));
+
+        menuButton.addClickHandler(e -> setMenuOpen(!menuPanel.isVisible()));
+        menuBackdrop.setTabIndex(-1);
+        menuBackdrop.addClickHandler(e -> setMenuOpen(false));
+        for (Button item : new Button[] {leaveRoomButton, endGameButton, deleteRoomButton}) {
+            item.addClickHandler(e -> setMenuOpen(false));
+        }
+    }
+
+    private void initChat() {
+        chatButton.getElement().setAttribute("aria-label", I18n.c().chat());
+        renderChatButton(0);
+        chatButton.addClickHandler(e -> setChatOpen(true));
+        chatBackdrop.setTabIndex(-1);
+        chatBackdrop.addClickHandler(e -> setChatOpen(false));
+        chatPanel.getCloseButton().addClickHandler(e -> setChatOpen(false));
+    }
+
+    private void setMenuOpen(boolean open) {
+        menuPanel.setVisible(open);
+        menuBackdrop.setVisible(open);
+        menuButton.getElement().setAttribute("aria-expanded", String.valueOf(open));
+    }
+
+    private void setSettingsOpen(boolean open) {
+        settingsBody.setVisible(open);
+        permissionsPanel.setStyleName("room-settings-open", open);
+        settingsToggleButton.getElement().setAttribute("aria-expanded", String.valueOf(open));
+    }
+
+    /** On a phone the chat is a sheet over the room; on a wide screen it is always shown. */
+    private void setChatOpen(boolean open) {
+        chatOpen = open;
+        root.setStyleName("room-chat-open", open);
+        if (open) markMessagesSeen();
     }
 
     public TextBox getPasswordEditInput() { return passwordEditInput; }
@@ -163,7 +178,6 @@ public class RoomView extends Composite {
             deleteRoomButton.setVisible(false);
             leaveRoomButton.setVisible(false);
             startInfoLabel.setText(I18n.c().gameInProgress());
-            startInfoLabel.setStyleName("startInfoLabel startInfoLabel-waiting");
             startInfoLabel.setVisible(true);
         } else {
             leaveRoomButton.setVisible(true);
@@ -183,9 +197,8 @@ public class RoomView extends Composite {
     }
 
     public HTMLPanel getPlayerPanel() { return playerPanel; }
-    public TextArea getMessageDisplayField() { return messageDisplayField; }
-    public TextBox getMessageInputField() { return messageInputField; }
-    public Button getSendMessageButton() { return sendMessageButton; }
+    public TextBox getMessageInputField() { return chatPanel.getMessageInputField(); }
+    public Button getSendMessageButton() { return chatPanel.getSendButton(); }
 
     public ListBox getGameSelectorBox() { return gameSelectorBox; }
     public Button getOptionsButton() { return optionsButton; }
@@ -199,6 +212,7 @@ public class RoomView extends Composite {
             passwordDisplayLabel.setVisible(false);
             passwordEditPanel.setVisible(false);
             lastRenderedPassword = null;
+            renderSettingsToggle();
             return;
         }
         if (isCreator) {
@@ -210,11 +224,24 @@ public class RoomView extends Composite {
             passwordEditPanel.setVisible(true);
             passwordDisplayLabel.setVisible(false);
         } else {
-            passwordDisplayLabel.setText("🔑 " + password);
+            passwordDisplayLabel.setHTML(passwordChip(password));
             passwordDisplayLabel.setVisible(true);
             passwordEditPanel.setVisible(false);
         }
         lastRenderedPassword = password;
+        renderSettingsToggle();
+    }
+
+    /** The creator's "Room settings" row shows the password, so it is visible while folded. */
+    private void renderSettingsToggle() {
+        String chip = lastRenderedPassword == null ? "" : passwordChip(lastRenderedPassword);
+        settingsToggleButton.setHTML("<span class='room-settings-label'>"
+                + SafeHtmlUtils.htmlEscape(I18n.c().roomSettings()) + "</span>" + chip + RoomIcons.CARET);
+    }
+
+    private static String passwordChip(String password) {
+        return "<span class='room-password-chip'>" + RoomIcons.LOCK
+                + SafeHtmlUtils.htmlEscape(password) + "</span>";
     }
 
     public void populateGameSelector(ArrayList<GameDefinition> games) {
@@ -329,12 +356,15 @@ public class RoomView extends Composite {
     /**
      * Marks seated players who don't have the room page open (closed tab, or still
      * on the page of a previous game) with a red inner ring. Updates the running
-     * simulation in place so the layout doesn't jump on every presence change.
+     * simulation in place so the layout doesn't jump on every presence change, and
+     * names them under the start button so the host knows who to wait for.
      */
-    public void showAbsentPlayers(Set<String> absentPlayerIds) {
+    public void showAbsentPlayers(Map<String, String> absentNamesById) {
+        absentPlayersLabel.setText(I18n.m().notInRoom(String.join(", ", absentNamesById.values())));
+        absentPlayersLabel.setVisible(!absentNamesById.isEmpty());
         StringBuilder json = new StringBuilder("[");
         boolean first = true;
-        for (String userId : absentPlayerIds) {
+        for (String userId : absentNamesById.keySet()) {
             if (!first) json.append(",");
             first = false;
             json.append("\"").append(userId.replaceAll("[^a-zA-Z0-9]", "_")).append("\"");
@@ -606,12 +636,10 @@ public class RoomView extends Composite {
         if (isCreator) {
             if (!hasGame) {
                 startInfoLabel.setText(I18n.c().errSelectGame());
-                startInfoLabel.setStyleName("startInfoLabel startInfoLabel-waiting");
                 startInfoLabel.setVisible(true);
             } else if (!enoughPlayers) {
                 int missing = room.getMinPlayers() - room.getPlayerNames().size();
                 startInfoLabel.setText(I18n.m().waitingForPlayers(missing));
-                startInfoLabel.setStyleName("startInfoLabel startInfoLabel-waiting");
                 startInfoLabel.setVisible(true);
             } else {
                 startInfoLabel.setVisible(false);
@@ -620,7 +648,6 @@ public class RoomView extends Composite {
             String creatorName = room.getPlayerNames().get(room.getCreatedByUserId());
             if (creatorName == null) creatorName = I18n.c().theHost();
             startInfoLabel.setText(I18n.m().willStartTheGame(creatorName));
-            startInfoLabel.setStyleName("startInfoLabel startInfoLabel-waiting");
             startInfoLabel.setVisible(true);
         }
 
@@ -629,42 +656,55 @@ public class RoomView extends Composite {
         deleteRoomButton.setVisible(canDelete);
     }
 
-    public void refreshMessages(List<Message> messages) {
-        StringBuilder output = new StringBuilder();
-        String lastTimeStamp = "";
-        for (Message message : messages) {
-            if (!lastTimeStamp.equals(message.getTimestamp())) {
-                lastTimeStamp = message.getTimestamp();
-                output.append(lastTimeStamp);
-            } else {
-                output.append("     ");
-            }
-            output.append(" ").append(message.getNameSender()).append(" : ").append(message.getMessage());
-            output.append("\n");
-        }
-        Element el = messageDisplayField.getElement();
-        boolean atBottom = isScrolledToBottom(el);
-        messageDisplayField.setText(output.toString());
-        if (atBottom) scrollToBottom(el);
+    /**
+     * Readies the reused view for a room being entered: panels closed and the chat
+     * emptied, so the history that arrives first counts as already read.
+     */
+    public void resetForRoomEntry() {
+        setMenuOpen(false);
+        setSettingsOpen(false);
+        setChatOpen(false);
+        chatPanel.showMessages(new ArrayList<>(), null);
+        messageCount = 0;
+        seenMessageCount = -1;
+        renderChatButton(0);
     }
 
-    private native boolean isScrolledToBottom(Element el) /*-{
-        return el.scrollHeight - el.scrollTop - el.clientHeight < 6;
-    }-*/;
+    /** Shows the chat; messages that arrive while a phone's chat sheet is closed count as unread. */
+    public void refreshMessages(List<Message> messages, String ownName) {
+        chatPanel.showMessages(messages, ownName);
+        messageCount = messages.size();
+        if (seenMessageCount < 0 || chatOpen || isChatAlwaysShown()) {
+            markMessagesSeen();
+        } else {
+            renderChatButton(messageCount - seenMessageCount);
+        }
+    }
 
-    private native void scrollToBottom(Element el) /*-{
-        el.scrollTop = el.scrollHeight;
+    private void markMessagesSeen() {
+        seenMessageCount = messageCount;
+        renderChatButton(0);
+    }
+
+    private void renderChatButton(int unread) {
+        String badge = unread > 0 ? "<span class='room-chat-badge'>" + unread + "</span>" : "";
+        chatButton.setHTML(RoomIcons.CHAT + badge);
+    }
+
+    /** Matches the CSS breakpoint at which the chat becomes a side column. */
+    private native boolean isChatAlwaysShown() /*-{
+        return $wnd.matchMedia('(min-width: 900px)').matches;
     }-*/;
 
     public void showRoomName(String roomName) {
         roomTitle.setInnerText(roomName);
         int len = roomName.length();
         if (len <= 12) {
-            roomTitle.setClassName("room-title-short");
+            roomTitle.setClassName("room-title room-title-short");
         } else if (len <= 22) {
-            roomTitle.setClassName("room-title-medium");
+            roomTitle.setClassName("room-title room-title-medium");
         } else {
-            roomTitle.setClassName("room-title-long");
+            roomTitle.setClassName("room-title room-title-long");
         }
     }
 }

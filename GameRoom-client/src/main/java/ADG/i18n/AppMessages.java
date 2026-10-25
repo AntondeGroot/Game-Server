@@ -16,4 +16,6 @@ public interface AppMessages extends Messages {
     String errFailedToSetProfile(String message);
     String errFailedToOpenRoom(String message);
     String errFailedToSaveOptions(String message);
+
+    String notInRoom(String names);
 }
