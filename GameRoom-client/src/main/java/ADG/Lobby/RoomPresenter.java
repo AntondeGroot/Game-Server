@@ -21,9 +21,11 @@ import com.google.gwt.user.client.Window;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class RoomPresenter implements Presenter {
 
@@ -500,6 +502,7 @@ public class RoomPresenter implements Presenter {
         } else {
             playerListInitialized = true;
         }
+        roomView.showAbsentPlayers(absentPlayerIds(obj, updatedRoom, nowPlaying));
 
         // The waiting-room controls below (game selection, options, start/delete,
         // creator label) are only meaningful before a game starts. Once the room is
@@ -553,6 +556,27 @@ public class RoomPresenter implements Presenter {
 
         updateGameConfigControls(updatedRoom);
         roomView.updateCreatorControls(updatedRoom);
+    }
+
+    /**
+     * Seated players without the room page open. Only relevant while gathering for
+     * a game; during play everyone is expected to be on the game page instead.
+     * An empty set when the server doesn't report presence.
+     */
+    private Set<String> absentPlayerIds(JSONObject obj, Room updatedRoom, boolean nowPlaying) {
+        Set<String> absent = new HashSet<>();
+        JSONValue presentVal = obj.get("presentPlayerIds");
+        if (nowPlaying || presentVal == null || presentVal.isArray() == null) return absent;
+        Set<String> present = new HashSet<>();
+        JSONArray arr = presentVal.isArray();
+        for (int i = 0; i < arr.size(); i++) {
+            JSONValue v = arr.get(i);
+            if (v != null && v.isString() != null) present.add(v.isString().stringValue());
+        }
+        for (String playerId : updatedRoom.getPlayerNames().keySet()) {
+            if (!present.contains(playerId)) absent.add(playerId);
+        }
+        return absent;
     }
 
     private Room parseRoom(JSONObject obj) {

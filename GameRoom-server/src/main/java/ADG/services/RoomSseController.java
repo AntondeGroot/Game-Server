@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,7 +22,9 @@ class RoomSseController {
     private RoomStore roomStore;
 
     @GetMapping(value = "/rooms/{roomId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    SseEmitter stream(@PathVariable("roomId") String roomId, HttpServletResponse response) {
+    SseEmitter stream(@PathVariable("roomId") String roomId,
+                      @CookieValue(value = "playerid", required = false) String playerId,
+                      HttpServletResponse response) {
         response.setHeader("X-Accel-Buffering", "no");
 
         Room room = roomStore.rooms.stream()
@@ -29,12 +32,10 @@ class RoomSseController {
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
-        SseEmitter emitter = registry.subscribe(roomId);
-        try {
-            emitter.send(SseEmitter.event().data(room, MediaType.APPLICATION_JSON));
-        } catch (Exception e) {
-            emitter.completeWithError(e);
-        }
+        SseEmitter emitter = registry.subscribe(roomId, playerId);
+        // Broadcast rather than send only to the newcomer: everyone else learns
+        // that this player now has the room page open.
+        registry.emit(roomId, room);
         return emitter;
     }
 }

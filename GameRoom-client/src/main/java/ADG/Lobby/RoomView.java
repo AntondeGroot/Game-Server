@@ -15,6 +15,7 @@ import com.google.gwt.user.client.ui.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class RoomView extends Composite {
 
@@ -325,6 +326,33 @@ public class RoomView extends Composite {
         renderD3Simulation(playerPanel.getElement(), json.toString());
     }
 
+    /**
+     * Marks seated players who don't have the room page open (closed tab, or still
+     * on the page of a previous game) with a red inner ring. Updates the running
+     * simulation in place so the layout doesn't jump on every presence change.
+     */
+    public void showAbsentPlayers(Set<String> absentPlayerIds) {
+        StringBuilder json = new StringBuilder("[");
+        boolean first = true;
+        for (String userId : absentPlayerIds) {
+            if (!first) json.append(",");
+            first = false;
+            json.append("\"").append(userId.replaceAll("[^a-zA-Z0-9]", "_")).append("\"");
+        }
+        json.append("]");
+        applyAbsentPlayers(playerPanel.getElement(), json.toString());
+    }
+
+    private native void applyAbsentPlayers(Element container, String absentSafeIdsJson) /*-{
+        var absent = JSON.parse(absentSafeIdsJson);
+        // Kept on the container so a render still waiting for its animation frame picks it up.
+        container.__absent = absent;
+        var d3 = $wnd.d3;
+        if (!d3) return;
+        d3.select(container).selectAll('.pnode')
+            .classed('pnode-absent', function(d) { return absent.indexOf(d.safeId) >= 0; });
+    }-*/;
+
     private native void renderD3Simulation(Element container, String playersJson) /*-{
         var d3 = $wnd.d3;
         if (!d3) return;
@@ -397,8 +425,10 @@ public class RoomView extends Composite {
                 .attr('stroke-width', 1)
                 .attr('stroke-opacity', 0.15);
 
+            var absent = container.__absent || [];
             var nodeGroup = svg.append('g').selectAll('.pnode')
                 .data(players).enter().append('g').attr('class', 'pnode')
+                .classed('pnode-absent', function(d) { return absent.indexOf(d.safeId) >= 0; })
                 .style('cursor', 'grab');
 
             // outer glow ring
@@ -424,7 +454,8 @@ public class RoomView extends Composite {
                 .attr('r', R)
                 .attr('fill', 'rgba(28, 16, 64, 0.92)')
                 .attr('stroke', '#8b5cf6')
-                .attr('stroke-width', 2);
+                .attr('stroke-width', 2)
+                .attr('class', 'node-core');
 
             // Sprite image: position the full sheet so the desired sprite cell
             // (inset-adjusted) lands exactly over the circle, then clip.

@@ -1221,6 +1221,12 @@ td, th, span, p, div, label {
   animation: spin-dash 4s linear infinite;
 }
 
+/* Seated player without the room page open (closed tab or still in an old game).
+   CSS outranks the stroke attribute D3 sets on the circle. */
+.pnode-absent .node-core {
+  stroke: #ef4444;
+}
+
 /* =============================================
    Room Panel Layout Helper
    ============================================= */
