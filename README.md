@@ -340,261 +340,117 @@ Messages are encrypted with the room ID as the cipher key (see `ChatCipher`). Th
 <details>
 <summary>Preparing your Raspberry Pi from scratch</summary>
 
-## 0. Prerequisite: have Linux installed
+The scripts in this repository do most of the work. This guide covers the few steps they
+don't, in order: getting Ubuntu on the Pi, reaching it over SSH, and installing Java.
 
-## 1. Install Java and basics
+## 1. Install Ubuntu Server
 
-```bash
-sudo apt update
-sudo apt install openjdk-25-jdk ufw
-java -version
-```
+Use [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to write **Ubuntu Server
+26.04 LTS (64-bit)** to the SD card. In the imager's settings, create the user `ubuntu` and
+turn on SSH. The scripts assume that user and a 64-bit (arm64) system; the current server
+is a Raspberry Pi 4.
 
-## 2. Create deployment folders
+Find the Pi's address on your network, for example in your router's device list or with
+`hostname -I` on the Pi itself.
 
-```bash
-sudo mkdir -p /opt/keezen /opt/gameroom
-sudo chown -R ubuntu:ubuntu /opt/keezen /opt/gameroom
-```
+## 2. Set up SSH with a deploy key
 
-## 3. Set up SSH key-based deploy from your laptop
-
-Generate a dedicated deploy key:
+On your laptop, create a key used only for the Pi and copy it over:
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/pi_deploy_key
+ssh-copy-id -i ~/.ssh/pi_deploy_key.pub ubuntu@<PI_IP>
 ```
 
-Copy the public key to the Pi:
-
-```bash
-cat ~/.ssh/pi_deploy_key.pub
-```
-
-**On the Pi:**
-
-```bash
-mkdir -p ~/.ssh
-chmod 700 ~/.ssh
-nano ~/.ssh/authorized_keys
-# paste the public key, then Ctrl+O → Enter → Ctrl+X
-chmod 600 ~/.ssh/authorized_keys
-```
-
-Test the connection from your laptop:
-
-```bash
-ssh -i ~/.ssh/pi_deploy_key ubuntu@<RASPBERRYPI_IP>
-```
-
-Add an SSH alias in `~/.ssh/config`:
+Add an alias to `~/.ssh/config`. Every script connects to `my-pi` (home network) and falls
+back to `my-pi-ext` (Cloudflare Tunnel, see [Deploying from outside your local
+network](#deploying-from-outside-your-local-network-ssh-over-cloudflare-tunnel)):
 
 ```
 Host my-pi
-    HostName <RASPBERRYPI_IP>
+    HostName <PI_IP>
     User ubuntu
     IdentityFile ~/.ssh/pi_deploy_key
 ```
 
-Then connect with `ssh my-pi`.
+Check it with `ssh my-pi`. The scripts run `sudo` on the Pi without a password, which is how
+Ubuntu's `ubuntu` user is set up by default.
 
-## 4. Create systemd services
+## 3. Install Java 25
 
-**`/etc/systemd/system/game-server.service`**
-
-```ini
-[Unit]
-Description=Java Game Server
-After=network.target
-
-[Service]
-Type=simple
-User=ubuntu
-WorkingDirectory=/opt/game-server
-ExecStart=/usr/bin/java -jar /opt/game-server/game-server.jar
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**`/etc/systemd/system/gameroom.service`**
-
-```ini
-[Unit]
-Description=Gameroom Server
-After=network.target
-
-[Service]
-Type=simple
-User=ubuntu
-WorkingDirectory=/opt/gameroom
-ExecStart=/usr/bin/java -jar /opt/gameroom/gameroom.jar
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Reload and enable both:
+The game room and the games are built for Java 25, and the setup scripts expect it to be
+installed already:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now game-server
-sudo systemctl enable --now gameroom
-sudo systemctl status game-server gameroom
+ssh my-pi "sudo apt-get update && sudo apt-get install -y openjdk-25-jre-headless"
 ```
 
-## 5. Verify apps listen on the correct ports
+## 4. Firewall
 
-Expected ports: `game-server → 4200`, `gameroom → 4100`
+Only SSH needs to be reachable. Everything public arrives through the Cloudflare Tunnel,
+which connects to nginx from the Pi itself, so no web port has to be open:
 
 ```bash
-sudo ss -ltnp | grep -E '4100|4200'
+ssh my-pi "sudo ufw allow OpenSSH && sudo ufw enable"
 ```
 
-You should see both apps listed as `LISTEN`.
+A tunnel is used instead of port forwarding because many home connections sit behind
+CGNAT: the address the internet sees is shared with other customers, so forwarded ports
+never reach the Pi.
 
-> **Note:** If Spring Boot is packaging resources inside the JAR, use `getResourceAsStream()` instead of `new File(getResource(...).toURI())` — the latter fails inside a packaged JAR.
+## 5. Run the setup and deploy
 
-## 6. Deploy scripts
+1. Optionally create `deploy.local.conf` for a fixed domain (see [First-time Pi
+   setup](#first-time-pi-setup)). Without it you get a temporary `trycloudflare.com` address.
+2. `./setup-pi.sh` installs and configures nginx, the shared Tomcat (`setup-tomcat.sh`),
+   cloudflared and the `gameroom` service, and caps the system logs at 300 MB.
+3. `./deploy.sh` builds the game room and starts it.
+4. `./set-admin-password.sh` creates a new password for the `admin` login, prints it once and
+   restarts the game room. Write it down: only its hash is stored.
+5. Deploy each game from its own repository with its `deploy.sh`, which puts its WAR into
+   Tomcat.
 
-**`deploy-game-server.sh`**
+When it's done, this is what runs on the Pi:
+
+| Service | Listens on | Serves |
+|---|---|---|
+| `cloudflared` | outgoing only | forwards the public domains to nginx |
+| `nginx` | port 80 | sends `/keezen/` and `/qwixx/` to Tomcat and everything else to the game room |
+| `gameroom` | port 4100 | the lobby and rooms |
+| `tomcat10` | `127.0.0.1:8090` | Keezen and Qwixx |
+
+After a reboot, Keezen and Qwixx take about a minute to answer while Tomcat deploys them.
+
+## 6. Keep it up to date
+
+`./update-server.sh` installs package updates and the latest cloudflared, which was
+installed as a plain file and is never updated by `apt`. It refuses to run while rooms are
+open, because an update that restarts Java or Tomcat loses every room and running game.
 
 ```bash
-#!/bin/bash
-set -e
-
-echo "Building..."
-mvn clean package
-
-echo "Uploading..."
-scp -i ~/.ssh/pi_deploy_key GWT_Keezenspel-server/target/GWT_Keezenspel.jar my-pi:/home/ubuntu/game-server.jar
-
-echo "Installing..."
-ssh -i ~/.ssh/pi_deploy_key my-pi "sudo mkdir -p /opt/game-server && sudo mv /home/ubuntu/game-server.jar /opt/game-server/game-server.jar"
-
-echo "Restarting..."
-ssh -i ~/.ssh/pi_deploy_key my-pi "sudo systemctl restart game-server"
-
-echo "Done."
+./update-server.sh            # update, and report if a reboot is needed
+./update-server.sh --reboot   # reboot afterwards if the update asks for it
+./update-server.sh --force    # update even while rooms are open
 ```
 
-**`deploy-gameroom.sh`**
+To move to a new Ubuntu release, run the upgrade over the home network, never through the
+tunnel, because it restarts cloudflared:
 
 ```bash
-#!/bin/bash
-set -e
-
-echo "Building..."
-mvn clean package
-
-echo "Uploading..."
-scp -i ~/.ssh/pi_deploy_key GWT_Keezenspel-server/target/GWT_Keezenspel.jar my-pi:/home/ubuntu/gameroom.jar
-
-echo "Installing..."
-ssh -i ~/.ssh/pi_deploy_key my-pi "sudo mkdir -p /opt/gameroom && sudo mv /home/ubuntu/gameroom.jar /opt/gameroom/gameroom.jar"
-
-echo "Restarting..."
-ssh -i ~/.ssh/pi_deploy_key my-pi "sudo systemctl restart gameroom"
-
-echo "Done."
+ssh my-pi
+sudo do-release-upgrade
 ```
 
-Make both scripts executable:
+When it asks about a configuration file you changed, keep your currently installed version.
+Afterwards, check that `java -version` still reports 25 and that all four services above
+are running.
 
-```bash
-chmod +x deploy-game-server.sh deploy-gameroom.sh
-```
+## 7. When something is wrong
 
-## 7. Check logs
-
-```bash
-# Follow live
-journalctl -u game-server -f
-journalctl -u gameroom -f
-
-# Last 100 lines (no pager)
-journalctl -u game-server -n 100 --no-pager
-journalctl -u gameroom -n 100 --no-pager
-```
-
-## 8. Firewall
-
-```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 4100/tcp
-sudo ufw allow 4200/tcp
-sudo ufw enable
-sudo ufw status
-```
-
-## 9. Test on your local network first
-
-From another device on the same network:
-
-```bash
-curl http://<PI_IP>:4100
-curl http://<PI_IP>:4200
-```
-
-If it fails:
-- Make sure both devices are on the same network (not guest Wi-Fi)
-- Verify the Pi's IP with `hostname -I`
-
-## 10. Why it may still fail from outside your house (CGNAT)
-
-Even if the app works locally it may be unreachable from the internet. This happens when your ISP uses CGNAT: the public IP seen on the internet differs from your router's WAN IP, which makes port forwarding unreliable. The solution is a tunnel — see step 11.
-
-## 11. Expose publicly with Cloudflare Tunnel
-
-Install cloudflared on the Pi (ARM64):
-
-```bash
-wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
-sudo dpkg -i cloudflared-linux-arm64.deb
-sudo apt-get install -f
-cloudflared --version
-```
-
-Start a temporary tunnel:
-
-```bash
-cloudflared tunnel --url http://localhost:4100  # gameroom
-cloudflared tunnel --url http://localhost:4200  # game-server
-```
-
-This gives a public `trycloudflare.com` URL immediately — no domain needed. It bypasses CGNAT but the URL is temporary and changes on restart.
-
-## 12. Caddy (optional, if you have a domain)
-
-Caddy can act as a reverse proxy in front of both apps. If you have a domain with proper public routing, configure it like this:
-
-```
-game.example.com {
-    reverse_proxy 127.0.0.1:4200
-}
-
-gameroom.example.com {
-    reverse_proxy 127.0.0.1:4100
-}
-```
-
-## 13. Useful commands
-
-```bash
-# Check what's listening
-sudo ss -ltnp | grep java
-
-# Service management
-sudo systemctl status game-server gameroom
-sudo systemctl restart game-server gameroom
-
-# Live logs
-journalctl -u game-server -f
-journalctl -u gameroom -f
-```
+- `./diagnose.sh` shows the service status, recent errors, the installed config, the Java
+  version, listening ports, disk space and memory.
+- Logs: `ssh my-pi journalctl -u gameroom -f` for the game room, and
+  `journalctl -u tomcat10 -f` for the games.
+- `./get-tunnel-url.sh` prints the current address when you use a temporary tunnel.
 
 </details>
