@@ -2,30 +2,31 @@ package ADG.services;
 
 import ADG.Lobby.GameStatus;
 import ADG.Lobby.Room;
+import ADG.generated.api.GamesApi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * The {@code games} part of gameroom_openapi.yaml. Operations not overridden here still answer
+ * 501 Not Implemented; the GWT client uses RoomService over RPC for them until they move here.
+ */
 @RestController
-@RequestMapping("/rooms")
-public class GameFinishedCallbackController {
+public class GamesController implements GamesApi {
 
-    private static final Logger logger = LoggerFactory.getLogger(GameFinishedCallbackController.class);
+    private static final Logger logger = LoggerFactory.getLogger(GamesController.class);
 
     @Autowired private RoomStore roomStore;
     @Autowired private RoomSseRegistry sseRegistry;
     @Autowired private LobbySseRegistry lobbySseRegistry;
 
-    @PostMapping("/{roomId}/game-finished")
-    public ResponseEntity<Void> gameFinished(@PathVariable("roomId") String roomId) {
+    @Override
+    public ResponseEntity<Void> gameFinished(String roomId) {
         roomStore.rooms.stream()
                 .filter(r -> roomId.equals(r.getId()))
                 .findFirst()

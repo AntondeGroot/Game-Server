@@ -48,7 +48,7 @@ import static org.mockito.Mockito.when;
 class GameFinishedFlowTest {
 
     private RoomServiceImpl service;
-    private GameFinishedCallbackController callbackController;
+    private GamesController callbackController;
     private RoomStore roomStore;
 
     @Mock private GamesConfig gamesConfig;
@@ -70,7 +70,7 @@ class GameFinishedFlowTest {
         inject(service, "lobbySseRegistry",   lobbySseRegistry);
         inject(service, "serverPort",         4100);
 
-        callbackController = new GameFinishedCallbackController();
+        callbackController = new GamesController();
         inject(callbackController, "roomStore",        roomStore);
         inject(callbackController, "sseRegistry",      sseRegistry);
         inject(callbackController, "lobbySseRegistry", lobbySseRegistry);

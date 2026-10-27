@@ -107,15 +107,16 @@ class ChatControllerTest {
     }
 
     @Test
-    void missingSenderFieldDefaultsToEmpty() throws Exception {
+    void missingSenderIsRejected() throws Exception {
         String roomId = "room-f";
         String body = objectMapper.writeValueAsString(Map.of("message", "no sender"));
 
         mockMvc.perform(post("/chat/" + roomId)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(body));
+                .content(body))
+                .andExpect(status().isBadRequest());
 
         mockMvc.perform(get("/chat/" + roomId))
-                .andExpect(jsonPath("$[0].sender", is("")));
+                .andExpect(jsonPath("$", hasSize(0)));
     }
 }

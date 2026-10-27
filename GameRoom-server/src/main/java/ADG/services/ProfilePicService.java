@@ -14,17 +14,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.stereotype.Service;
 
-@RestController
-@CrossOrigin(origins = "*")
-public class ProfilePicController {
+/** Cuts single profile pictures out of the sprite sheets as 100×100 PNGs. */
+@Service
+public class ProfilePicService {
 
     private static final int OUTPUT_SIZE = 100;
 
@@ -37,19 +31,8 @@ public class ProfilePicController {
     private final Map<Integer, byte[]> renderedPngs = new ConcurrentHashMap<>();
     private final Object renderLock = new Object();
 
-    @GetMapping("/profile-pic/{index}")
-    public ResponseEntity<byte[]> getProfilePic(@PathVariable("index") int index) {
-        byte[] png = cachedOrRendered(index);
-        if (png == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
-        return ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_PNG)
-                .header("Cache-Control", "public, max-age=86400")
-                .body(png);
-    }
-
-    private byte[] cachedOrRendered(int index) {
+    /** The PNG of the picture at {@code index}, or null when there is none. */
+    public byte[] png(int index) {
         byte[] png = renderedPngs.get(index);
         if (png != null) return png;
         synchronized (renderLock) {
