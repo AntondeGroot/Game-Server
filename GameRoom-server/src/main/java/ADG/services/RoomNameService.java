@@ -8,15 +8,13 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.stereotype.Service;
 
-@RestController
-public class RoomNameController {
+/** The pool of suggested room names, read once at startup. */
+@Service
+public class RoomNameService {
 
     private List<String> names;
     private final Random random = new Random();
@@ -47,15 +45,12 @@ public class RoomNameController {
         }
     }
 
-    @GetMapping("/random-room-name")
-    public ResponseEntity<Map<String, String>> getRandomName() {
-        return ResponseEntity.ok(Map.of("name", names.get(random.nextInt(names.size()))));
+    public String randomName() {
+        return names.get(random.nextInt(names.size()));
     }
 
-    /** Returns the full pool of candidate room names so the client can pick one
-     * that isn't already taken (retrying until it finds a free name). */
-    @GetMapping("/room-names")
-    public ResponseEntity<List<String>> getAllNames() {
-        return ResponseEntity.ok(names);
+    /** The full pool, so the client can pick a name that no open room uses yet. */
+    public List<String> allNames() {
+        return names;
     }
 }

@@ -27,7 +27,7 @@ Decisions:
 
 | # | Step | Where players see it |
 |---|------|----------------------|
-| 0 | **API spec first.** Write `gameroom_openapi.yml` describing the existing REST and SSE endpoints and REST versions of the 17 RPC calls. Lint it with Redocly in CI before code generation. Spring implements interfaces generated from the spec, and contract tests check real responses. GWT keeps using RPC. | nothing changes |
+| 0 | **API spec first.** Write `gameroom_openapi.yaml` describing the existing REST and SSE endpoints and REST versions of the 17 RPC calls. Lint it with Redocly in CI before code generation. Spring implements interfaces generated from the spec, and contract tests check real responses. GWT keeps using RPC. | nothing changes |
 | 1 | **Angular skeleton** in a new `GameRoom-web/` module, built by Maven and served at `/next/`, with all gates below. CI gets a single required `ci` job that needs every other job, plus the checklist's `ruleset.json`. | empty app at `/next/` |
 | 2 | **Lobby and character selection**: lobby stream, cookies, language, room passwords. | `/next/` |
 | 3 | **Room**: the D3 player animation (using the `d3` package directly), chat with `ChatCipher`, presence rings, the menu and the folding settings. | `/next/` |

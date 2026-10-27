@@ -15,7 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
-class SpriteSheetsControllerTest {
+class SpriteSheetsEndpointTest {
 
     @Autowired
     private MockMvc mockMvc;

@@ -43,6 +43,21 @@
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+    <!-- Required by the code generated from gameroom_openapi.yaml -->
+    <dependency>
+      <groupId>io.swagger.core.v3</groupId>
+      <artifactId>swagger-annotations</artifactId>
+      <version>2.2.55</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openapitools</groupId>
+      <artifactId>jackson-databind-nullable</artifactId>
+      <version>0.2.12</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-devtools</artifactId>
       <optional>true</optional>
     </dependency>
@@ -96,6 +111,60 @@
                this keeps `mvn spring-boot:run` behaving like the real deployment. -->
           <jvmArguments>--add-opens java.base/java.lang=ALL-UNNAMED</jvmArguments>
         </configuration>
+      </plugin>
+      <!-- Generate the Spring API interfaces and models from the OpenAPI spec. The output lives in
+           target/ and is never committed: the spec is the only source of truth. -->
+      <plugin>
+        <groupId>org.openapitools</groupId>
+        <artifactId>openapi-generator-maven-plugin</artifactId>
+        <version>7.26.0</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>generate</goal>
+            </goals>
+            <configuration>
+              <inputSpec>${project.basedir}/../gameroom_openapi.yaml</inputSpec>
+              <generatorName>spring</generatorName>
+              <apiPackage>ADG.generated.api</apiPackage>
+              <modelPackage>ADG.generated.model</modelPackage>
+              <!-- "Dto" keeps the generated names apart from the shared domain types (Room, Player,
+                   …). Only the Java names change; the JSON on the wire does not. -->
+              <modelNameSuffix>Dto</modelNameSuffix>
+              <output>${project.build.directory}/generated-sources/openapi</output>
+              <supportingFilesToGenerate>ApiUtil.java</supportingFilesToGenerate>
+              <configOptions>
+                <interfaceOnly>true</interfaceOnly>
+                <useTags>true</useTags>
+                <useSpringBoot3>true</useSpringBoot3>
+                <useJakartaEe>true</useJakartaEe>
+                <sourceFolder>src/main/java</sourceFolder>
+                <!-- Optional lists stay null instead of becoming empty ones, so the generated
+                     types say what the server really sends. -->
+                <containerDefaultToNull>true</containerDefaultToNull>
+              </configOptions>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.2</version>
+        <executions>
+          <execution>
+            <id>add-generated-sources</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>${project.build.directory}/generated-sources/openapi/src/main/java</source>
+              </sources>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

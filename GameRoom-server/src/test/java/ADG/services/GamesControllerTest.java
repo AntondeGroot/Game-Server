@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
-class GameFinishedCallbackControllerTest {
+class GamesControllerTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired RoomStore roomStore;

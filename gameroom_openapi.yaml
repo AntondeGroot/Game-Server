@@ -25,15 +25,13 @@ security:
 
 tags:
   - name: rooms
-    description: Creating, listing and changing rooms
+    description: Creating, listing and changing rooms, and suggesting their names
   - name: players
-    description: Joining and leaving a room
+    description: Joining and leaving a room, and the profile pictures players choose from
   - name: games
     description: The games a room can play, and running them
   - name: chat
     description: Messages within a room
-  - name: lookups
-    description: Room names and profile pictures
 
 paths:
   /rooms:
@@ -444,6 +442,9 @@ paths:
         the first one is sent straight away. Comment lines (`: ping`) keep the connection open.
       operationId: streamLobby
       tags: [rooms]
+      # Code generators skip x-internal operations: a generated method cannot return a stream
+      # (SseEmitter on the server, EventSource in the browser), so both sides write these by hand.
+      x-internal: true
       responses:
         '200':
           description: An event stream of `RoomSummary` lists
@@ -468,6 +469,9 @@ paths:
         `stream_closed` event with no data means the room was deleted.
       operationId: streamRoom
       tags: [rooms]
+      # Code generators skip x-internal operations: a generated method cannot return a stream
+      # (SseEmitter on the server, EventSource in the browser), so both sides write these by hand.
+      x-internal: true
       responses:
         '200':
           description: An event stream of `RoomStreamEvent`s
@@ -492,6 +496,9 @@ paths:
         the first one is sent straight away.
       operationId: streamMessages
       tags: [chat]
+      # Code generators skip x-internal operations: a generated method cannot return a stream
+      # (SseEmitter on the server, EventSource in the browser), so both sides write these by hand.
+      x-internal: true
       responses:
         '200':
           description: An event stream of `ChatMessage` lists
@@ -510,25 +517,21 @@ paths:
     get:
       summary: Suggest a room name
       operationId: getRandomRoomName
-      tags: [lookups]
+      tags: [rooms]
       responses:
         '200':
           description: A name from the pool; it may already be taken
           content:
             application/json:
               schema:
-                type: object
-                required: [name]
-                properties:
-                  name:
-                    type: string
+                $ref: '#/components/schemas/RoomName'
 
   /room-names:
     get:
       summary: List every suggested room name
       description: The client picks one that no open room uses yet.
       operationId: getRoomNames
-      tags: [lookups]
+      tags: [rooms]
       responses:
         '200':
           description: The pool of names
@@ -543,7 +546,7 @@ paths:
     get:
       summary: Describe the sheets the profile pictures are cut from
       operationId: getSpriteSheets
-      tags: [lookups]
+      tags: [players]
       responses:
         '200':
           description: The sprite sheets, in picture-index order
@@ -566,7 +569,7 @@ paths:
     get:
       summary: Get one profile picture
       operationId: getProfilePic
-      tags: [lookups]
+      tags: [players]
       security: []
       responses:
         '200':
@@ -575,7 +578,12 @@ paths:
             image/png:
               schema:
                 type: string
+                # format: binary is what makes openapi-generator use a binary type (Resource / Blob);
+                # it ignores contentMediaType.
+                format: binary
                 contentMediaType: image/png
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           description: There is no picture with that number
 
@@ -886,9 +894,16 @@ components:
           type: string
           minLength: 1
 
+    RoomName:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+
     SpriteSheet:
       type: object
-      required: [url, cols, rows, imgWidth, imgHeight, insetPx]
+      required: [url, cols, rows, imgWidth, imgHeight, insetPx, exclude, onlyInclude, botOnly]
       properties:
         url:
           type: string
@@ -907,6 +922,21 @@ components:
         insetPx:
           type: integer
           minimum: 0
+        exclude:
+          type: array
+          description: One-based pictures on this sheet to hide. Ignored when `onlyInclude` is not empty.
+          items:
+            type: integer
+            minimum: 1
+        onlyInclude:
+          type: array
+          description: One-based pictures on this sheet to show; all others are hidden.
+          items:
+            type: integer
+            minimum: 1
+        botOnly:
+          type: boolean
+          description: The sheet is for computer players and is not offered to people
 
     Problem:
       type: object
