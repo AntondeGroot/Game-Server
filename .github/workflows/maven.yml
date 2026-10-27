@@ -7,7 +7,25 @@ on:
     branches: [ "main" ]
 
 jobs:
+  # Structural lint of the API spec. Runs before the build because code generation
+  # accepts broken specs and silently produces wrong models.
+  lint-openapi:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      # Major pinned so a new Redocly major can't turn CI red on an untouched spec.
+      - name: Lint gameroom_openapi.yaml
+        run: npx --yes @redocly/cli@2 lint gameroom_openapi.yaml --config .redocly.yaml
+
   build:
+    needs: lint-openapi
     runs-on: ubuntu-latest
 
     steps:
