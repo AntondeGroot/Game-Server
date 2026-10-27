@@ -1,0 +1,10 @@
+# Structural lint gate for gameroom_openapi.yaml. The `recommended` ruleset enables `struct`, which
+# validates schema objects against the OpenAPI meta-schema — this is what catches the silently-wrong
+# spec bugs (invalid keywords, malformed inline schemas) that openapi-generator accepts and turns
+# into empty/mis-bound models. Runs BEFORE codegen.
+extends:
+  - recommended
+
+rules:
+  # Unlicensed hobby project — don't claim a license the repo doesn't have.
+  info-license: off

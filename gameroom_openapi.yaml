@@ -1,0 +1,925 @@
+openapi: 3.1.0
+info:
+  title: Gameroom API
+  version: 1.0.0
+  description: |
+    The REST API of the game room: the lobby, rooms, players and games.
+    It replaces the GWT-RPC RoomService and MessageService for the Angular client.
+
+    The caller is identified by the `playerid` cookie. Operations that act for a player
+    (joining, leaving, host-only changes) compare it with the path's `{playerId}` or the
+    room's host on the server.
+
+    Paths that the games themselves call (`DELETE /rooms/{roomId}/players/{playerId}`,
+    `POST /rooms/{roomId}/game-finished`, `/profile-pic/{index}`) keep their current shape.
+
+servers:
+  # Relative to the serving origin — also the correct default basePath for the generated SPA client,
+  # which overrides it at runtime via provideApi(environment.apiBaseUrl). The game room runs on
+  # http://localhost:4100 in development.
+  - url: /
+    description: Same-origin
+
+security:
+  - playerCookie: []
+
+tags:
+  - name: rooms
+    description: Creating, listing and changing rooms
+  - name: players
+    description: Joining and leaving a room
+  - name: games
+    description: The games a room can play, and running them
+  - name: chat
+    description: Messages within a room
+  - name: lookups
+    description: Room names and profile pictures
+
+paths:
+  /rooms:
+    get:
+      summary: List the rooms in the lobby
+      description: Rooms that are still being set up by their host are not listed.
+      operationId: getRooms
+      tags: [rooms]
+      responses:
+        '200':
+          description: The rooms in the lobby
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoomSummary'
+    post:
+      summary: Create a room
+      description: |
+        Creates the room with the caller as its host and first player, and shows it in the lobby.
+        The caller leaves any other room that is not playing.
+      operationId: createRoom
+      tags: [rooms]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoomRequest'
+      responses:
+        '201':
+          description: Room created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: A room with that name already exists (names are compared ignoring case)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
+  /rooms/{roomId}:
+    parameters:
+      - $ref: '#/components/parameters/roomId'
+    get:
+      summary: Get one room
+      operationId: getRoom
+      tags: [rooms]
+      responses:
+        '200':
+          description: The room
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a room
+      description: Only the host can delete a room.
+      operationId: deleteRoom
+      tags: [rooms]
+      responses:
+        '204':
+          description: Room deleted
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /rooms/{roomId}/settings:
+    parameters:
+      - $ref: '#/components/parameters/roomId'
+    put:
+      summary: Change what the other players may do
+      description: Only the host can change the settings.
+      operationId: setRoomSettings
+      tags: [rooms]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomSettings'
+      responses:
+        '200':
+          description: The room with its new settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /rooms/{roomId}/password:
+    parameters:
+      - $ref: '#/components/parameters/roomId'
+    post:
+      summary: Protect the room with a generated password
+      description: The server picks a short password such as `CAD47`. Only the host can do this.
+      operationId: generateRoomPassword
+      tags: [rooms]
+      responses:
+        '200':
+          description: The new password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomPassword'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      summary: Protect the room with a chosen password
+      description: |
+        Spaces are removed and letters are upper-cased. Only the host can do this.
+      operationId: setRoomPassword
+      tags: [rooms]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomPassword'
+      responses:
+        '200':
+          description: The password as stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomPassword'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Remove the password
+      description: Only the host can do this.
+      operationId: removeRoomPassword
+      tags: [rooms]
+      responses:
+        '204':
+          description: The room no longer has a password
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /rooms/{roomId}/players/{playerId}:
+    parameters:
+      - $ref: '#/components/parameters/roomId'
+      - $ref: '#/components/parameters/playerId'
+    put:
+      summary: Join a room, or change your name or picture in it
+      description: |
+        `{playerId}` must be the caller. Joining leaves any other room. The server checks the
+        password when the room has one; the room becomes full when it reaches its maximum.
+      operationId: joinRoom
+      tags: [players]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinRoomRequest'
+      responses:
+        '200':
+          description: The room with the player in it
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          description: The password is wrong, or `{playerId}` is not the caller
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The room is full or playing, or another player already has that picture
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    delete:
+      summary: Leave a room
+      description: |
+        `{playerId}` must be the caller. Not allowed while the room is playing. When the host
+        leaves, the next player becomes host. Keezen and Qwixx call this path.
+      operationId: leaveRoom
+      tags: [players]
+      responses:
+        '204':
+          description: The player has left
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/game:
+    parameters:
+      - $ref: '#/components/parameters/roomId'
+    put:
+      summary: Choose the game the room will play
+      description: Allowed for the host, or for anyone when the room's settings allow it.
+      operationId: selectGame
+      tags: [games]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectGameRequest'
+      responses:
+        '200':
+          description: The room with the chosen game
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/game-options:
+    parameters:
+      - $ref: '#/components/parameters/roomId'
+    put:
+      summary: Set the options for the chosen game
+      description: Allowed for the host, or for anyone when the room's settings allow it.
+      operationId: setGameOptions
+      tags: [games]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameOptionValues'
+      responses:
+        '200':
+          description: The room with the new options
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/session:
+    parameters:
+      - $ref: '#/components/parameters/roomId'
+    post:
+      summary: Start the chosen game
+      description: |
+        Starts a session on the game's server and sets the room to playing. Allowed for the
+        host, or for anyone when the room's settings allow it.
+      operationId: startGame
+      tags: [games]
+      responses:
+        '201':
+          description: The game has started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: No game is chosen, the game is already running, or there are too few or too many players
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '502':
+          description: The game's server could not start the game
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+    delete:
+      summary: End the running game
+      description: |
+        Ends the session on the game's server and sets the room back to waiting. Allowed for the
+        host, or for anyone when the room's settings allow it.
+      operationId: endGame
+      tags: [games]
+      responses:
+        '204':
+          description: The game has ended
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /rooms/{roomId}/game-finished:
+    parameters:
+      - $ref: '#/components/parameters/roomId'
+    post:
+      summary: Tell the room its game has finished
+      description: Called by the game's server, not by the browser. Unknown rooms are ignored.
+      operationId: gameFinished
+      tags: [games]
+      security: []
+      responses:
+        '204':
+          description: The room is waiting again
+
+  /games:
+    get:
+      summary: List the games a room can play
+      operationId: getGames
+      tags: [games]
+      responses:
+        '200':
+          description: The available games
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Game'
+
+  /games/{gameId}/options:
+    parameters:
+      - $ref: '#/components/parameters/gameId'
+    get:
+      summary: List the options a game offers
+      operationId: getGameOptions
+      tags: [games]
+      responses:
+        '200':
+          description: The game's options
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GameOption'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /chat/{roomId}:
+    parameters:
+      - $ref: '#/components/parameters/roomId'
+    get:
+      summary: Get the room's chat messages
+      operationId: getMessages
+      tags: [chat]
+      responses:
+        '200':
+          description: The messages, oldest first; empty for an unknown room
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatMessage'
+    post:
+      summary: Send a chat message
+      operationId: sendMessage
+      tags: [chat]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '201':
+          description: Message sent
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /lobby/stream:
+    get:
+      summary: Follow the lobby
+      description: |
+        Server-sent events. Each `message` event carries the full list of lobby rooms as JSON;
+        the first one is sent straight away. Comment lines (`: ping`) keep the connection open.
+      operationId: streamLobby
+      tags: [rooms]
+      responses:
+        '200':
+          description: An event stream of `RoomSummary` lists
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: The `data` line of each `message` event holds this JSON
+                contentMediaType: application/json
+                contentSchema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RoomSummary'
+
+  /rooms/{roomId}/stream:
+    parameters:
+      - $ref: '#/components/parameters/roomId'
+    get:
+      summary: Follow one room
+      description: |
+        Server-sent events. Each `message` event carries a `RoomStreamEvent` as JSON. A
+        `stream_closed` event with no data means the room was deleted.
+      operationId: streamRoom
+      tags: [rooms]
+      responses:
+        '200':
+          description: An event stream of `RoomStreamEvent`s
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: The `data` line of each `message` event holds this JSON
+                contentMediaType: application/json
+                contentSchema:
+                  $ref: '#/components/schemas/RoomStreamEvent'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /chat/{roomId}/stream:
+    parameters:
+      - $ref: '#/components/parameters/roomId'
+    get:
+      summary: Follow the room's chat
+      description: |
+        Server-sent events. Each `message` event carries all messages of the room as JSON;
+        the first one is sent straight away.
+      operationId: streamMessages
+      tags: [chat]
+      responses:
+        '200':
+          description: An event stream of `ChatMessage` lists
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: The `data` line of each `message` event holds this JSON
+                contentMediaType: application/json
+                contentSchema:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ChatMessage'
+
+  /random-room-name:
+    get:
+      summary: Suggest a room name
+      operationId: getRandomRoomName
+      tags: [lookups]
+      responses:
+        '200':
+          description: A name from the pool; it may already be taken
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [name]
+                properties:
+                  name:
+                    type: string
+
+  /room-names:
+    get:
+      summary: List every suggested room name
+      description: The client picks one that no open room uses yet.
+      operationId: getRoomNames
+      tags: [lookups]
+      responses:
+        '200':
+          description: The pool of names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /sprite-sheets:
+    get:
+      summary: Describe the sheets the profile pictures are cut from
+      operationId: getSpriteSheets
+      tags: [lookups]
+      responses:
+        '200':
+          description: The sprite sheets, in picture-index order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SpriteSheet'
+
+  /profile-pic/{index}:
+    parameters:
+      - name: index
+        in: path
+        required: true
+        description: Zero-based picture number across all sprite sheets
+        schema:
+          type: integer
+          minimum: 0
+    get:
+      summary: Get one profile picture
+      operationId: getProfilePic
+      tags: [lookups]
+      security: []
+      responses:
+        '200':
+          description: The picture; cached for a day
+          content:
+            image/png:
+              schema:
+                type: string
+                contentMediaType: image/png
+        '404':
+          description: There is no picture with that number
+
+components:
+  securitySchemes:
+    playerCookie:
+      type: apiKey
+      in: cookie
+      name: playerid
+      description: |
+        Identifies the player. Declarative only: the server enforces who may do what.
+
+  parameters:
+    roomId:
+      name: roomId
+      in: path
+      required: true
+      schema:
+        type: string
+
+    playerId:
+      name: playerId
+      in: path
+      required: true
+      schema:
+        type: string
+
+    gameId:
+      name: gameId
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: The request is invalid
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: The caller is not allowed to do this
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: There is no such room or game
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: The room's state does not allow this, for example while it is playing
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+
+  schemas:
+    RoomStatus:
+      type: string
+      description: |
+        `WAITING` accepts players, `FULL` has reached its maximum, `PLAYING` runs a game.
+      enum: [WAITING, FULL, PLAYING]
+
+    RoomSummary:
+      type: object
+      description: What the lobby shows of a room. Never contains the password.
+      required: [id, name, status, playerCount, maxPlayers, hasPassword]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        gameId:
+          type: string
+          description: Left out until a game is chosen
+        status:
+          $ref: '#/components/schemas/RoomStatus'
+        playerCount:
+          type: integer
+          minimum: 0
+        maxPlayers:
+          type: integer
+          minimum: 1
+        hasPassword:
+          type: boolean
+
+    Room:
+      type: object
+      required:
+        - id
+        - name
+        - hostId
+        - status
+        - players
+        - minPlayers
+        - maxPlayers
+        - uniqueProfilePics
+        - settings
+        - gameOptions
+        - hasPassword
+        - embeddedSettings
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        hostId:
+          type: string
+          description: The player who created the room, or took over when the host left
+        status:
+          $ref: '#/components/schemas/RoomStatus'
+        players:
+          type: array
+          description: In the order they joined; the first is the host
+          items:
+            $ref: '#/components/schemas/Player'
+        gameId:
+          type: string
+          description: Left out until a game is chosen
+        gameBaseUrl:
+          type: string
+          description: Where the players go once the game has started
+        gameSessionId:
+          type: string
+          description: Only present while playing
+        minPlayers:
+          type: integer
+          minimum: 1
+        maxPlayers:
+          type: integer
+          minimum: 1
+        uniqueProfilePics:
+          type: boolean
+          description: Whether two players may not have the same picture
+        settings:
+          $ref: '#/components/schemas/RoomSettings'
+        gameOptions:
+          $ref: '#/components/schemas/GameOptionValues'
+        hasPassword:
+          type: boolean
+        password:
+          type: string
+          description: Only sent to the host, and only when the room has a password
+        embeddedSettings:
+          type: boolean
+          description: Whether the game shows its own options page inside the options dialog
+
+    Player:
+      type: object
+      required: [id, name, profileId]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        profileId:
+          type: string
+          description: The number of the chosen profile picture
+
+    RoomSettings:
+      type: object
+      required: [anyPlayerCanSelectGame, anyPlayerCanSetOptions]
+      properties:
+        anyPlayerCanSelectGame:
+          type: boolean
+        anyPlayerCanSetOptions:
+          type: boolean
+
+    RoomPassword:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          minLength: 1
+          maxLength: 20
+
+    CreateRoomRequest:
+      type: object
+      required: [name, hostName, profileId]
+      properties:
+        name:
+          type: string
+          minLength: 3
+        hostName:
+          type: string
+          minLength: 1
+        profileId:
+          type: string
+        gameId:
+          type: string
+
+    JoinRoomRequest:
+      type: object
+      required: [name, profileId]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        profileId:
+          type: string
+        password:
+          type: string
+          description: Needed when the room has a password; compared ignoring case
+
+    SelectGameRequest:
+      type: object
+      required: [gameId]
+      properties:
+        gameId:
+          type: string
+
+    GameOptionValues:
+      type: object
+      description: The value of each option, by option key
+      additionalProperties:
+        type: string
+
+    Game:
+      type: object
+      required: [id, name, minPlayers, maxPlayers, embeddedSettings]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        minPlayers:
+          type: integer
+          minimum: 1
+        maxPlayers:
+          type: integer
+          minimum: 1
+        embeddedSettings:
+          type: boolean
+
+    GameOption:
+      type: object
+      required: [key, type, adminOnly]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        labelKey:
+          type: string
+          description: Translation key for the label
+        descriptionKey:
+          type: string
+          description: Translation key for the description
+        type:
+          type: string
+        defaultValue:
+          type: string
+        choices:
+          type: array
+          items:
+            type: string
+        minValue:
+          type: integer
+        maxValue:
+          type: integer
+        adminOnly:
+          type: boolean
+        incompatibleWith:
+          type: array
+          description: Keys of options that cannot be combined with this one
+          items:
+            type: string
+
+    RoomStreamEvent:
+      type: object
+      required: [room, presentPlayerIds]
+      properties:
+        room:
+          $ref: '#/components/schemas/Room'
+        presentPlayerIds:
+          type: array
+          description: Players who currently have the room open
+          items:
+            type: string
+
+    ChatMessage:
+      type: object
+      required: [sender, message, timestampUTC]
+      properties:
+        sender:
+          type: string
+        message:
+          type: string
+        timestampUTC:
+          type: string
+          description: The time the server received it, as `HH:mm` in UTC
+          pattern: '^\d{2}:\d{2}$'
+
+    SendMessageRequest:
+      type: object
+      required: [sender, message]
+      properties:
+        sender:
+          type: string
+        message:
+          type: string
+          minLength: 1
+
+    SpriteSheet:
+      type: object
+      required: [url, cols, rows, imgWidth, imgHeight, insetPx]
+      properties:
+        url:
+          type: string
+        cols:
+          type: integer
+          minimum: 1
+        rows:
+          type: integer
+          minimum: 1
+        imgWidth:
+          type: integer
+          minimum: 1
+        imgHeight:
+          type: integer
+          minimum: 1
+        insetPx:
+          type: integer
+          minimum: 0
+
+    Problem:
+      type: object
+      description: An error, as RFC 9457 problem details (Spring's ProblemDetail)
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+          description: A message that can be shown to the player
+        instance:
+          type: string

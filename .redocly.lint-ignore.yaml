@@ -1,0 +1,22 @@
+# Redocly lint exceptions. Scoped ignores (not a rule-off) so operation-4xx-response keeps catching
+# genuinely-undocumented error responses elsewhere.
+#
+# These take no input (or ignore it) and only ever return 200 or 204:
+#   - GET  /rooms                        — lists the lobby
+#   - POST /rooms/{roomId}/game-finished — game server callback; unknown rooms are ignored
+#   - GET  /games                        — lists the configured games
+#   - GET  /lobby/stream                 — event stream of the lobby
+#   - GET  /chat/{roomId}, /chat/{roomId}/stream — an unknown room just has no messages
+#   - GET  /random-room-name, /room-names, /sprite-sheets — fixed lookups
+# See https://redocly.com/docs/cli/ for the format.
+gameroom_openapi.yaml:
+  operation-4xx-response:
+    - '#/paths/~1rooms/get/responses'
+    - '#/paths/~1rooms~1{roomId}~1game-finished/post/responses'
+    - '#/paths/~1games/get/responses'
+    - '#/paths/~1lobby~1stream/get/responses'
+    - '#/paths/~1chat~1{roomId}/get/responses'
+    - '#/paths/~1chat~1{roomId}~1stream/get/responses'
+    - '#/paths/~1random-room-name/get/responses'
+    - '#/paths/~1room-names/get/responses'
+    - '#/paths/~1sprite-sheets/get/responses'
