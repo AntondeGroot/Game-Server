@@ -67,7 +67,7 @@ class GameFinishedFlowTest {
         inject(service, "roomStore",          roomStore);
         inject(service, "restTemplate",       restTemplate);
         inject(service, "sseRegistry",        sseRegistry);
-        inject(service, "lobbySseRegistry",   lobbySseRegistry);
+        inject(service, "roomManager",        roomManager());
         inject(service, "serverPort",         4100);
 
         callbackController = new GamesController();
@@ -77,6 +77,15 @@ class GameFinishedFlowTest {
 
         lenient().when(spriteSheetsConfig.getSheets()).thenReturn(List.of());
         lenient().doReturn("player-1").when(service).getPlayerIdFromRequest();
+    }
+
+    private RoomManager roomManager() throws Exception {
+        RoomManager roomManager = new RoomManager();
+        inject(roomManager, "gamesConfig",      gamesConfig);
+        inject(roomManager, "roomStore",        roomStore);
+        inject(roomManager, "sseRegistry",      sseRegistry);
+        inject(roomManager, "lobbySseRegistry", lobbySseRegistry);
+        return roomManager;
     }
 
     // ── full flow ─────────────────────────────────────────────────────────────

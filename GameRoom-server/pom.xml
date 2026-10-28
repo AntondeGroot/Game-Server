@@ -142,6 +142,9 @@
                 <!-- Optional lists stay null instead of becoming empty ones, so the generated
                      types say what the server really sends. -->
                 <containerDefaultToNull>true</containerDefaultToNull>
+                <!-- The spec leaves optional fields out rather than sending null (null is not a
+                     valid string in OpenAPI 3.1). Only the generated models get this. -->
+                <additionalModelTypeAnnotations>@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)</additionalModelTypeAnnotations>
               </configOptions>
             </configuration>
           </execution>
