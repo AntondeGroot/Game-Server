@@ -74,9 +74,9 @@ class RoomServiceImplTest {
         sseRegistryField.setAccessible(true);
         sseRegistryField.set(service, sseRegistry);
 
-        Field lobbySseRegistryField = RoomServiceImpl.class.getDeclaredField("lobbySseRegistry");
-        lobbySseRegistryField.setAccessible(true);
-        lobbySseRegistryField.set(service, lobbySseRegistry);
+        Field roomManagerField = RoomServiceImpl.class.getDeclaredField("roomManager");
+        roomManagerField.setAccessible(true);
+        roomManagerField.set(service, roomManager());
 
         Field spriteSheetsConfigField = RoomServiceImpl.class.getDeclaredField("spriteSheetsConfig");
         spriteSheetsConfigField.setAccessible(true);
@@ -87,6 +87,22 @@ class RoomServiceImplTest {
         lenient().when(gamesConfig.findById(anyString())).thenReturn(Optional.empty());
         // Default: caller is the room creator used by buildRoom().
         lenient().doReturn("creator-1").when(service).getPlayerIdFromRequest();
+    }
+
+    /** The real room rules, sharing this test's room store and mocks. */
+    private RoomManager roomManager() throws Exception {
+        RoomManager roomManager = new RoomManager();
+        Map<String, Object> fields = Map.of(
+                "gamesConfig", gamesConfig,
+                "roomStore", roomStore,
+                "sseRegistry", sseRegistry,
+                "lobbySseRegistry", lobbySseRegistry);
+        for (Map.Entry<String, Object> field : fields.entrySet()) {
+            Field f = RoomManager.class.getDeclaredField(field.getKey());
+            f.setAccessible(true);
+            f.set(roomManager, field.getValue());
+        }
+        return roomManager;
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

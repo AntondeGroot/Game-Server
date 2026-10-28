@@ -1,17 +1,24 @@
 package ADG.services;
 
+import ADG.generated.api.ChatApi;
+import ADG.generated.api.GamesApi;
+import ADG.generated.api.PlayersApi;
+import ADG.generated.api.RoomsApi;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
- * Turns a path or query parameter that breaks a constraint in gameroom_openapi.yaml (such as a
- * negative picture number) into a 400 problem, instead of the 500 Spring gives by default.
+ * Sends errors of the controllers that implement gameroom_openapi.yaml as
+ * {@code application/problem+json}, as the spec promises: a {@code ResponseStatusException}
+ * from {@link RoomManager}, an invalid request body, or a parameter that breaks a constraint
+ * (such as a negative picture number, which would otherwise be a 500).
  */
-@RestControllerAdvice
-public class ApiErrorHandler {
+@RestControllerAdvice(assignableTypes = {RoomsApi.class, PlayersApi.class, GamesApi.class, ChatApi.class})
+public class ApiErrorHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ProblemDetail constraintViolated(ConstraintViolationException e) {

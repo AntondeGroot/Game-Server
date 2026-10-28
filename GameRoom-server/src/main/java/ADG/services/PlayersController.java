@@ -5,7 +5,6 @@ import ADG.config.SpriteSheetsConfig;
 import ADG.config.SpriteSheetsConfig.SheetDef;
 import ADG.generated.api.PlayersApi;
 import ADG.generated.model.SpriteSheetDto;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Optional;
@@ -47,7 +46,7 @@ public class PlayersController implements PlayersApi {
      */
     @Override
     public ResponseEntity<Void> leaveRoom(String roomId, String playerId) {
-        String cookiePlayerId = playerIdFromCookie(request);
+        String cookiePlayerId = PlayerCookie.idOf(request);
         if (cookiePlayerId == null || !cookiePlayerId.equals(playerId)) {
             return ResponseEntity.status(403).build();
         }
@@ -90,14 +89,5 @@ public class PlayersController implements PlayersApi {
         return new SpriteSheetDto(sheet.getUrl(), sheet.getCols(), sheet.getRows(),
                 sheet.getImgWidth(), sheet.getImgHeight(), sheet.getInsetPx(),
                 sheet.getExclude(), sheet.getOnlyInclude(), sheet.isBotOnly());
-    }
-
-    private static String playerIdFromCookie(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) return null;
-        for (Cookie c : cookies) {
-            if ("playerid".equals(c.getName())) return c.getValue();
-        }
-        return null;
     }
 }

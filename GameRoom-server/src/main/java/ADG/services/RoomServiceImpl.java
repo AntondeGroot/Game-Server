@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -29,6 +28,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.server.ResponseStatusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +68,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     private RoomSseRegistry sseRegistry;
 
     @Autowired
-    private LobbySseRegistry lobbySseRegistry;
+    private RoomManager roomManager;
 
     private static final long EMPTY_ROOM_TTL_MS = 15 * 60 * 1000L;
     private static final long INACTIVE_GAME_TTL_MS = 60 * 60 * 1000L;
@@ -77,65 +77,29 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
 
     @Override
     public synchronized ArrayList<Room> getRooms() {
-        ArrayList<Room> visible = new ArrayList<>();
-        for (Room r : roomStore.rooms) {
-            if (r.getStatus() != GameStatus.PENDING) {
-                visible.add(r);
-            }
-        }
-        return visible;
+        return new ArrayList<>(roomManager.lobbyRooms());
     }
 
     @Override
     public synchronized Room getRoomById(String roomId){
-        Optional<Room> result = roomStore.rooms.stream().filter(room -> room.getId().equals(roomId)).findFirst();
-        if(result.isPresent()) {
-            if(result.get().getId() == null){
-                throw new IllegalArgumentException();
-            }
-            return result.get();
-        }
-        return null;
+        return roomManager.findRoom(roomId).orElse(null);
     }
 
     @Override
     public synchronized Room createRoom(Room room) throws RoomServiceException {
-        if (room.getName().isBlank() || room.getName().trim().length() < 3) {
-            throw new RoomServiceException("Room name must be at least 3 characters.");
+        try {
+            return roomManager.addPendingRoom(room);
+        } catch (ResponseStatusException e) {
+            throw new RoomServiceException(e.getReason());
         }
-        boolean nameAlreadyExists = roomStore.rooms.stream()
-                .anyMatch(r -> r.getName().equalsIgnoreCase(room.getName().trim()));
-        if (nameAlreadyExists) {
-            throw new RoomServiceException("A room with this name already exists.");
-        }
-        roomStore.rooms.stream()
-                .filter(r -> r.getPlayerIds().contains(room.getCreatedByUserId())
-                          && r.getStatus() != GameStatus.PLAYING)
-                .findFirst()
-                .ifPresent(r -> removePlayerFromRoom(room.getCreatedByUserId(), r.getId()));
-
-        gamesConfig.findById(room.getGameId()).ifPresent(game -> {
-            room.setMinPlayers(game.getMinPlayers());
-            room.setMaxPlayers(game.getMaxPlayers());
-            room.setGameBaseUrl(game.getBaseUrl());
-        });
-        room.setStatus(GameStatus.PENDING);
-        roomStore.rooms.add(room);
-        return room;
     }
 
     private void emitLobbyUpdate() {
-        List<Room> visible = roomStore.rooms.stream()
-                .filter(r -> r.getStatus() != GameStatus.PENDING)
-                .collect(Collectors.toList());
-        lobbySseRegistry.emit(visible);
+        roomManager.emitLobbyUpdate();
     }
 
     private void emitRoomUpdate(String roomId) {
-        roomStore.rooms.stream()
-                .filter(r -> r.getId().equals(roomId))
-                .findFirst()
-                .ifPresent(r -> sseRegistry.emit(roomId, r));
+        roomManager.emitRoomUpdate(roomId);
     }
 
     @Override
@@ -153,14 +117,11 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     // Admins delete rooms through the Spring Security-protected DELETE /admin/rooms/{id} endpoint instead.
     @Override
     public synchronized void deleteRoom(String roomId) {
-        String callerId = getPlayerIdFromRequest();
-        boolean isCreator = roomStore.rooms.stream()
-                .filter(r -> r.getId().equals(roomId))
-                .anyMatch(r -> r.getCreatedByUserId().equals(callerId));
-        if (!isCreator) return;
-        roomStore.deleteRoom(roomId);
-        sseRegistry.emitClosed(roomId);
-        emitLobbyUpdate();
+        try {
+            roomManager.deleteRoom(roomId, getPlayerIdFromRequest());
+        } catch (ResponseStatusException e) {
+            // The GWT client never shows this: only the host sees the delete button.
+        }
     }
 
     String getPlayerIdFromRequest() {
@@ -231,21 +192,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
 
     @Override
     public synchronized void removePlayerFromRoom(String playerId, String roomId) {
-        for (Room room1 : roomStore.rooms) {
-            if (room1.getId().equals(roomId)) {
-                if (room1.getStatus() == GameStatus.PLAYING) return;
-                room1.removePlayer(playerId);
-                if (room1.getStatus() == GameStatus.FULL && room1.getNrOfPlayers() < room1.getMaxPlayers()) {
-                    room1.setStatus(GameStatus.WAITING);
-                }
-                if (playerId.equals(room1.getCreatedByUserId()) && !room1.getPlayerIds().isEmpty()) {
-                    String newCreator = room1.getPlayerIds().get(0);
-                    room1.setCreatedByUserId(newCreator);
-                }
-            }
-        }
-        emitRoomUpdate(roomId);
-        emitLobbyUpdate();
+        roomManager.removePlayer(playerId, roomId);
     }
 
     @Override
