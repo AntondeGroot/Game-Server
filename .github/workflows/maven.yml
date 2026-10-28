@@ -18,7 +18,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
 
       # Major pinned so a new Redocly major can't turn CI red on an untouched spec.
       - name: Lint gameroom_openapi.yaml
