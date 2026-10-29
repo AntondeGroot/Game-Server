@@ -7,6 +7,8 @@ import ADG.generated.api.RoomsApi;
 import ADG.generated.model.CreateRoomRequestDto;
 import ADG.generated.model.RoomDto;
 import ADG.generated.model.RoomNameDto;
+import ADG.generated.model.RoomPasswordDto;
+import ADG.generated.model.RoomSettingsDto;
 import ADG.generated.model.RoomSummaryDto;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
@@ -57,7 +59,33 @@ public class RoomsController implements RoomsApi {
 
     @Override
     public ResponseEntity<Void> deleteRoom(String roomId) {
-        rooms.deleteRoom(roomId, PlayerCookie.idOf(request));
+        rooms.deleteRoom(roomId, PlayerCookie.idOf(request), request.isUserInRole("ADMIN"));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<RoomDto> setRoomSettings(String roomId, RoomSettingsDto settings) {
+        String callerId = PlayerCookie.idOf(request);
+        Room room = rooms.changeSettings(roomId, callerId,
+                settings.getAnyPlayerCanSelectGame(), settings.getAnyPlayerCanSetOptions());
+        return ResponseEntity.ok(RoomDtos.detail(room, callerId));
+    }
+
+    @Override
+    public ResponseEntity<RoomPasswordDto> generateRoomPassword(String roomId) {
+        String password = rooms.protectWithGeneratedPassword(roomId, PlayerCookie.idOf(request));
+        return ResponseEntity.ok(new RoomPasswordDto(password));
+    }
+
+    @Override
+    public ResponseEntity<RoomPasswordDto> setRoomPassword(String roomId, RoomPasswordDto body) {
+        String stored = rooms.protectWithPassword(roomId, PlayerCookie.idOf(request), body.getPassword());
+        return ResponseEntity.ok(new RoomPasswordDto(stored));
+    }
+
+    @Override
+    public ResponseEntity<Void> removeRoomPassword(String roomId) {
+        rooms.removePassword(roomId, PlayerCookie.idOf(request));
         return ResponseEntity.noContent().build();
     }
 
