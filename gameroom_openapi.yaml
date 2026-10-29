@@ -96,7 +96,7 @@ paths:
           $ref: '#/components/responses/NotFound'
     delete:
       summary: Delete a room
-      description: Only the host can delete a room.
+      description: Only the host or a logged-in admin can delete a room.
       operationId: deleteRoom
       tags: [rooms]
       responses:
@@ -198,7 +198,8 @@ paths:
       summary: Join a room, or change your name or picture in it
       description: |
         `{playerId}` must be the caller. Joining leaves any other room. The server checks the
-        password when the room has one; the room becomes full when it reaches its maximum.
+        password when the room has one, except for a logged-in admin; the room becomes full when
+        it reaches its maximum.
       operationId: joinRoom
       tags: [players]
       requestBody:

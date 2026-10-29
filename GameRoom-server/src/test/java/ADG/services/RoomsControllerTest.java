@@ -3,6 +3,7 @@ package ADG.services;
 import ADG.Lobby.GameStatus;
 import ADG.Lobby.Room;
 import jakarta.servlet.http.Cookie;
+import java.util.Base64;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -175,6 +176,22 @@ class RoomsControllerTest {
                 .andExpect(status().isNotFound());
         mockMvc.perform(get("/rooms"))
                 .andExpect(jsonPath("$", empty()));
+    }
+
+    @Test
+    void deleteRoomByALoggedInAdminRemovesARoomTheyDoNotHost() throws Exception {
+        createRoom("host-1", "Dragon's Den").andExpect(status().isCreated());
+        String roomId = roomStore.rooms.get(0).getId();
+        // admin:test matches the BCrypt hash in test/resources/application.yaml.
+        String adminAuth = "Basic " + Base64.getEncoder().encodeToString("admin:test".getBytes());
+
+        mockMvc.perform(delete("/rooms/" + roomId)
+                        .cookie(new Cookie("playerid", "admin-player"))
+                        .header("Authorization", adminAuth))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/rooms/" + roomId))
+                .andExpect(status().isNotFound());
     }
 
     @Test

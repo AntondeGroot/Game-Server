@@ -60,8 +60,7 @@ public class RoomManager {
 
     /** Opens a room with the caller as its host and first player, and shows it in the lobby. */
     public synchronized Room openRoom(String name, String gameId, String hostId, String hostName, String profileId) {
-        // Not Room(name, creator): that constructor gets its id from GWT JavaScript, which only
-        // runs in the browser.
+        // Not Room(name, creator): it gets its id from GWT JavaScript, which only runs in a browser.
         Room room = new Room();
         room.setId(UUID.randomUUID().toString());
         room.setName(name);
@@ -84,15 +83,38 @@ public class RoomManager {
         return room;
     }
 
-    /** Deletes the room; only its host may. */
-    public synchronized void deleteRoom(String roomId, String callerId) {
-        Room room = findRoom(roomId).orElseThrow(() -> roomNotFound(roomId));
-        if (!room.getCreatedByUserId().equals(callerId)) {
-            throw new ResponseStatusException(FORBIDDEN, "Only the host can delete the room.");
-        }
+    /** Deletes the room; only its host or an admin may. */
+    public synchronized void deleteRoom(String roomId, String callerId, boolean callerIsAdmin) {
+        if (callerIsAdmin) findRoom(roomId).orElseThrow(() -> roomNotFound(roomId));
+        else hostedRoom(roomId, callerId);
         roomStore.deleteRoom(roomId);
         sseRegistry.emitClosed(roomId);
         emitLobbyUpdate();
+    }
+
+    /** Changes what the other players may do; only the host may. */
+    public synchronized Room changeSettings(String roomId, String callerId,
+            boolean anyPlayerCanSelectGame, boolean anyPlayerCanSetOptions) {
+        Room room = hostedRoom(roomId, callerId);
+        room.setAnyPlayerCanSelectGame(anyPlayerCanSelectGame);
+        room.setAnyPlayerCanSetOptions(anyPlayerCanSetOptions);
+        emitRoomUpdate(roomId);
+        return room;
+    }
+
+    /** Protects the room with a password the server picks; only the host may. */
+    public synchronized String protectWithGeneratedPassword(String roomId, String callerId) {
+        return protect(hostedRoom(roomId, callerId), RoomPasswords.generate());
+    }
+
+    /** Protects the room with the host's own password, normalized as {@link RoomPasswords} says. */
+    public synchronized String protectWithPassword(String roomId, String callerId, String password) {
+        return protect(hostedRoom(roomId, callerId), RoomPasswords.normalize(password));
+    }
+
+    /** Lets anyone join again; only the host may. */
+    public synchronized void removePassword(String roomId, String callerId) {
+        protect(hostedRoom(roomId, callerId), null);
     }
 
     /**
@@ -122,6 +144,23 @@ public class RoomManager {
 
     public void emitRoomUpdate(String roomId) {
         findRoom(roomId).ifPresent(r -> sseRegistry.emit(roomId, r));
+    }
+
+    /** The room, when the caller is its host. */
+    private Room hostedRoom(String roomId, String callerId) {
+        Room room = findRoom(roomId).orElseThrow(() -> roomNotFound(roomId));
+        if (!room.getCreatedByUserId().equals(callerId)) {
+            throw new ResponseStatusException(FORBIDDEN, "Only the host can do this.");
+        }
+        return room;
+    }
+
+    /** Sets or, with null, removes the password; the lobby shows which rooms have one. */
+    private String protect(Room room, String password) {
+        room.setRoomPassword(password);
+        emitRoomUpdate(room.getId());
+        emitLobbyUpdate();
+        return password;
     }
 
     private void addRoom(Room room, GameStatus status) {

@@ -17,7 +17,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,17 +36,6 @@ import org.slf4j.LoggerFactory;
 public class RoomServiceImpl extends RemoteServiceServlet implements RoomService {
 
     private static final Logger logger = LoggerFactory.getLogger(RoomServiceImpl.class);
-
-    // Password generation: CVC + two digits (e.g. "CAD47") — a pronounceable
-    // syllable plus two numbers, easy to read aloud or dictate across the room.
-    // Excluded vowels   : I (→1/L), O (→0)
-    // Excluded consonants: B (→8), G (→6/9), L (→1/I), Q (rare/O-like), S (→5), V (→U), Z (→2)
-    // Excluded digits    : 0 (→O), 1 (→I/L)
-    private static final char[] PWD_VOWELS     = "AEU".toCharArray();
-    private static final char[] PWD_CONSONANTS = "CDFHJKMNPRTWXY".toCharArray();
-    private static final char[] PWD_DIGITS     = "23456789".toCharArray();
-    private static final int    PWD_MAX_LENGTH = 20;
-    private static final Random  PWD_RANDOM    = new Random();
 
     @Autowired
     private GamesConfig gamesConfig;
@@ -118,7 +106,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     @Override
     public synchronized void deleteRoom(String roomId) {
         try {
-            roomManager.deleteRoom(roomId, getPlayerIdFromRequest());
+            roomManager.deleteRoom(roomId, getPlayerIdFromRequest(), false);
         } catch (ResponseStatusException e) {
             // The GWT client never shows this: only the host sees the delete button.
         }
@@ -397,69 +385,33 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
 
     @Override
     public synchronized void setRoomPermissions(String roomId, boolean anyPlayerCanSelectGame, boolean anyPlayerCanSetOptions) throws RoomServiceException {
-        String callerId = getPlayerIdFromRequest();
-        Room found = roomStore.rooms.stream()
-                .filter(r -> r.getId().equals(roomId))
-                .findFirst()
-                .orElseThrow(() -> new RoomServiceException("Room not found: " + roomId));
-        if (!found.getCreatedByUserId().equals(callerId)) {
-            throw new RoomServiceException("Only the room creator can change permissions");
+        try {
+            roomManager.changeSettings(roomId, getPlayerIdFromRequest(), anyPlayerCanSelectGame, anyPlayerCanSetOptions);
+        } catch (ResponseStatusException e) {
+            throw new RoomServiceException(e.getReason());
         }
-        found.setAnyPlayerCanSelectGame(anyPlayerCanSelectGame);
-        found.setAnyPlayerCanSetOptions(anyPlayerCanSetOptions);
-        emitRoomUpdate(roomId);
     }
 
     @Override
     public synchronized void setRoomPassword(String roomId, boolean enabled) throws RoomServiceException {
-        String callerId = getPlayerIdFromRequest();
-        Room found = roomStore.rooms.stream()
-                .filter(r -> r.getId().equals(roomId))
-                .findFirst()
-                .orElseThrow(() -> new RoomServiceException("Room not found: " + roomId));
-        if (!found.getCreatedByUserId().equals(callerId)) {
-            throw new RoomServiceException("Only the room creator can set a room password");
+        try {
+            if (enabled) {
+                roomManager.protectWithGeneratedPassword(roomId, getPlayerIdFromRequest());
+            } else {
+                roomManager.removePassword(roomId, getPlayerIdFromRequest());
+            }
+        } catch (ResponseStatusException e) {
+            throw new RoomServiceException(e.getReason());
         }
-        found.setRoomPassword(enabled ? generateRoomPassword() : null);
-        emitRoomUpdate(roomId);
-        emitLobbyUpdate();
     }
 
-    /**
-     * Sets a custom room password chosen by the creator. The value is trimmed of
-     * whitespace, upper-cased (entry is case-insensitive) and capped in length.
-     */
     @Override
     public synchronized void updateRoomPassword(String roomId, String password) throws RoomServiceException {
-        String callerId = getPlayerIdFromRequest();
-        Room found = roomStore.rooms.stream()
-                .filter(r -> r.getId().equals(roomId))
-                .findFirst()
-                .orElseThrow(() -> new RoomServiceException("Room not found: " + roomId));
-        if (!found.getCreatedByUserId().equals(callerId)) {
-            throw new RoomServiceException("Only the room creator can set a room password");
+        try {
+            roomManager.protectWithPassword(roomId, getPlayerIdFromRequest(), password);
+        } catch (ResponseStatusException e) {
+            throw new RoomServiceException(e.getReason());
         }
-        String normalized = password == null ? "" : password.replaceAll("\\s+", "").toUpperCase();
-        if (normalized.isEmpty()) {
-            throw new RoomServiceException("Room password cannot be empty");
-        }
-        if (normalized.length() > PWD_MAX_LENGTH) {
-            normalized = normalized.substring(0, PWD_MAX_LENGTH);
-        }
-        found.setRoomPassword(normalized);
-        emitRoomUpdate(roomId);
-        emitLobbyUpdate();
-    }
-
-    /** Generates a CVC + two-digit password (e.g. "CAD47") using unambiguous characters. */
-    private String generateRoomPassword() {
-        char[] pwd = new char[5];
-        pwd[0] = PWD_CONSONANTS[PWD_RANDOM.nextInt(PWD_CONSONANTS.length)];
-        pwd[1] = PWD_VOWELS[PWD_RANDOM.nextInt(PWD_VOWELS.length)];
-        pwd[2] = PWD_CONSONANTS[PWD_RANDOM.nextInt(PWD_CONSONANTS.length)];
-        pwd[3] = PWD_DIGITS[PWD_RANDOM.nextInt(PWD_DIGITS.length)];
-        pwd[4] = PWD_DIGITS[PWD_RANDOM.nextInt(PWD_DIGITS.length)];
-        return new String(pwd);
     }
 
     @Override
