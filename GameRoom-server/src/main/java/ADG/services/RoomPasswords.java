@@ -32,10 +32,21 @@ final class RoomPasswords {
      * capped in length.
      */
     static String normalize(String password) {
-        String normalized = password == null ? "" : password.replaceAll("\\s+", "").toUpperCase();
+        String normalized = canonical(password);
         if (normalized.isEmpty()) {
             throw new ResponseStatusException(BAD_REQUEST, "Room password cannot be empty");
         }
+        return normalized;
+    }
+
+    /** Whether the entered password opens a room protected by the stored one. */
+    static boolean matches(String stored, String entered) {
+        String normalized = canonical(entered);
+        return !normalized.isEmpty() && normalized.equals(stored);
+    }
+
+    private static String canonical(String password) {
+        String normalized = password == null ? "" : password.replaceAll("\\s+", "").toUpperCase();
         return normalized.length() > MAX_LENGTH ? normalized.substring(0, MAX_LENGTH) : normalized;
     }
 
