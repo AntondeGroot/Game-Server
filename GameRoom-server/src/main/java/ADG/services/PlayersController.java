@@ -1,10 +1,15 @@
 package ADG.services;
 
+import static org.springframework.http.HttpStatus.FORBIDDEN;
+
 import ADG.Lobby.Room;
 import ADG.config.SpriteSheetsConfig;
 import ADG.config.SpriteSheetsConfig.SheetDef;
 import ADG.generated.api.PlayersApi;
+import ADG.generated.model.JoinRoomRequestDto;
+import ADG.generated.model.RoomDto;
 import ADG.generated.model.SpriteSheetDto;
+import ADG.services.RoomManager.Seat;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Optional;
@@ -15,10 +20,11 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
- * The {@code players} part of gameroom_openapi.yaml. Operations not overridden here still
- * answer 501 Not Implemented; the GWT client joins rooms over RPC until joinRoom moves here.
+ * The {@code players} part of gameroom_openapi.yaml. The GWT client still joins rooms over RPC,
+ * with the password checked in the browser; the Angular client uses joinRoom.
  */
 @RestController
 public class PlayersController implements PlayersApi {
@@ -38,6 +44,20 @@ public class PlayersController implements PlayersApi {
     /** A proxy to the current request; the generated signatures leave out the playerid cookie. */
     @Autowired
     private HttpServletRequest request;
+
+    @Autowired
+    private RoomManager rooms;
+
+    /** Joins the room, or changes the caller's name or picture in it; an admin needs no password. */
+    @Override
+    public ResponseEntity<RoomDto> joinRoom(String roomId, String playerId, JoinRoomRequestDto body) {
+        if (!playerId.equals(PlayerCookie.idOf(request))) {
+            throw new ResponseStatusException(FORBIDDEN, "You can only join a room as yourself.");
+        }
+        Seat seat = new Seat(playerId, body.getName(), body.getProfileId());
+        Room room = rooms.joinRoom(roomId, seat, body.getPassword(), request.isUserInRole("ADMIN"));
+        return ResponseEntity.ok(RoomDtos.detail(room, playerId));
+    }
 
     /**
      * Lets a player remove themselves from a room (called by games when the player clicks

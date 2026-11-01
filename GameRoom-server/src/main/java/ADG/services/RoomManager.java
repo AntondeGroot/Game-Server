@@ -77,6 +77,32 @@ public class RoomManager {
         return room;
     }
 
+    /** A player as they appear in a room. */
+    public record Seat(String playerId, String name, String profileId) {}
+
+    /**
+     * Seats the player in the lobby room, or changes their name or picture there. A newcomer
+     * must pass {@link RoomEntryRules#checkCanEnter} and leaves any other room.
+     */
+    public synchronized Room joinRoom(String roomId, Seat seat, String password, boolean callerIsAdmin) {
+        Room room = lobbyRoom(roomId);
+        RoomEntryRules.checkPlayerName(seat.name());
+        RoomEntryRules.checkPictureFree(room, seat.playerId(), seat.profileId());
+        if (!room.getPlayerIds().contains(seat.playerId())) {
+            RoomEntryRules.checkCanEnter(room, password, callerIsAdmin);
+            leaveOtherRoom(seat.playerId());
+            room.addPlayer(seat.playerId());
+            if (room.getNrOfPlayers() >= room.getMaxPlayers()) {
+                room.setStatus(GameStatus.FULL);
+            }
+        }
+        room.addPlayerName(seat.playerId(), seat.name());
+        room.addPlayerProfile(seat.playerId(), seat.profileId());
+        emitRoomUpdate(roomId);
+        emitLobbyUpdate();
+        return room;
+    }
+
     /** The GWT flow: the room stays out of the lobby until its host joins and publishes it. */
     public synchronized Room addPendingRoom(Room room) {
         addRoom(room, GameStatus.PENDING);
