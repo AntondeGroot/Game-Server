@@ -776,6 +776,7 @@ components:
         hostName:
           type: string
           minLength: 1
+          maxLength: 15
         profileId:
           type: string
         gameId:
@@ -788,6 +789,7 @@ components:
         name:
           type: string
           minLength: 1
+          maxLength: 15
         profileId:
           type: string
         password:

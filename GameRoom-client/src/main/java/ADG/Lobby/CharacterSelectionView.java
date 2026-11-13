@@ -27,7 +27,7 @@ public class CharacterSelectionView extends Composite {
     public CharacterSelectionView() {
         initWidget(uiBinder.createAndBindUi(this));
         langSelectorRow.add(new LanguageSelectorWidget());
-        usernameInput.setMaxLength(10);
+        usernameInput.setMaxLength(Room.MAX_PLAYER_NAME_LENGTH);
         // Prevent the browser autofilling saved credentials (e.g. an admin username) here.
         usernameInput.getElement().setAttribute("autocomplete", "off");
         usernameInput.getElement().setAttribute("data-lpignore", "true");

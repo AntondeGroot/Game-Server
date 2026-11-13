@@ -184,7 +184,13 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     }
 
     @Override
-    public synchronized void setUsernameAndProfile(Room room, String userId, String username, String profileId) {
+    public synchronized void setUsernameAndProfile(Room room, String userId, String username, String profileId)
+            throws RoomServiceException {
+        try {
+            RoomEntryRules.checkPlayerName(username);
+        } catch (ResponseStatusException e) {
+            throw new RoomServiceException(e.getReason());
+        }
         for (Room room1 : roomStore.rooms) {
             if (room1.getId().equals(room.getId())) {
                 room1.addPlayerName(userId, username);

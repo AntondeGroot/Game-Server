@@ -27,8 +27,12 @@ final class RoomEntryRules {
     }
 
     static void checkPlayerName(String name) {
-        if (name.isBlank()) {
+        if (name == null || name.isBlank()) {
             throw new ResponseStatusException(BAD_REQUEST, "Player name cannot be empty.");
+        }
+        if (name.length() > Room.MAX_PLAYER_NAME_LENGTH) {
+            throw new ResponseStatusException(BAD_REQUEST,
+                    "Player name cannot be longer than " + Room.MAX_PLAYER_NAME_LENGTH + " characters.");
         }
     }
 
