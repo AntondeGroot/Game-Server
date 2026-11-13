@@ -1,12 +1,20 @@
 # Raspberry Pi Game Room
 
 This project was written in GWT in order to get a better understanding of it, since this is used by my employer.
+
+**Lobby.** Create a room or join one that is waiting for players.
 <p align="center">
-   <img width="500" alt="image" src="https://github.com/user-attachments/assets/7035146e-9a82-42ae-85d1-6f7a33bca0a2" />
+   <img width="700" alt="The game lobby with a create-room form and a list of open rooms" src="docs/images/lobby.jpg" />
 </p>
 
+**Character selection.** Pick a name and a profile picture. Pictures already taken in the room are crossed out.
 <p align="center">
-   <img width="500" alt="image" src="https://github.com/user-attachments/assets/54ef3dde-b30c-47b6-9569-fbcff16861f3" />
+   <img width="700" alt="Character selection with a grid of animal profile pictures" src="docs/images/character.jpg" />
+</p>
+
+**Game room.** The players in the room, the game and its options, and a chat. The host starts the game.
+<p align="center">
+   <img width="700" alt="A game room with six players, the Keezen game selected, and a chat" src="docs/images/room.jpg" />
 </p>
 
 # Games
