@@ -1,4 +1,4 @@
-# Raspberry Pi Game Room
+# Game Server
 
 This project was written in GWT in order to get a better understanding of it, since this is used by my employer.
 
