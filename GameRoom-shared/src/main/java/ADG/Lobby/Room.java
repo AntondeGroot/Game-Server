@@ -8,6 +8,9 @@ import java.util.HashMap;
 import java.util.Objects;
 
 public class Room implements IsSerializable {
+    /** The longest player name; the name input and the server both enforce it. */
+    public static final int MAX_PLAYER_NAME_LENGTH = 15;
+
     private String id;
     private String createdByUserId;
     private String name;

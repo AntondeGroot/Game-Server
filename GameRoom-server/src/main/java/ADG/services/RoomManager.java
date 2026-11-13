@@ -60,6 +60,7 @@ public class RoomManager {
 
     /** Opens a room with the caller as its host and first player, and shows it in the lobby. */
     public synchronized Room openRoom(String name, String gameId, String hostId, String hostName, String profileId) {
+        RoomEntryRules.checkPlayerName(hostName);
         // Not Room(name, creator): it gets its id from GWT JavaScript, which only runs in a browser.
         Room room = new Room();
         room.setId(UUID.randomUUID().toString());
