@@ -341,25 +341,11 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
 
     @Override
     public synchronized void setRoomGame(String roomId, String gameId) throws RoomServiceException {
-        String callerId = getPlayerIdFromRequest();
-        Room found = roomStore.rooms.stream()
-                .filter(r -> r.getId().equals(roomId))
-                .findFirst()
-                .orElseThrow(() -> new RoomServiceException("Room not found: " + roomId));
-        boolean isCreator = found.getCreatedByUserId().equals(callerId);
-        if (!isCreator && !found.isAnyPlayerCanSelectGame()) {
-            throw new RoomServiceException("Not authorized to select game");
+        try {
+            roomManager.selectGame(roomId, getPlayerIdFromRequest(), gameId);
+        } catch (ResponseStatusException e) {
+            throw new RoomServiceException(e.getReason());
         }
-        found.setGameId(gameId);
-        found.setGameOptions(new HashMap<>());
-        gamesConfig.findById(gameId).ifPresent(game -> {
-            found.setMinPlayers(game.getMinPlayers());
-            found.setMaxPlayers(game.getMaxPlayers());
-            found.setGameBaseUrl(game.getBaseUrl());
-            found.setEmbeddedSettings(game.isEmbeddedSettings());
-        });
-        emitRoomUpdate(roomId);
-        emitLobbyUpdate();
     }
 
     @Override
