@@ -392,11 +392,15 @@ paths:
       - $ref: '#/components/parameters/gameId'
     get:
       summary: List the options a game offers
+      description: >
+        The options come from the game itself, labelled in the language from the `language`
+        cookie (English without one). Options the game reserves for admins, such as
+        experimental or unpublished features, are only listed for a logged-in admin.
       operationId: getGameOptions
       tags: [games]
       responses:
         '200':
-          description: The game's options
+          description: The game's options; empty when the game cannot be reached
           content:
             application/json:
               schema:
@@ -831,7 +835,7 @@ components:
 
     GameOption:
       type: object
-      required: [key, type, adminOnly]
+      required: [key, type]
       properties:
         key:
           type: string
@@ -857,8 +861,6 @@ components:
           type: integer
         maxValue:
           type: integer
-        adminOnly:
-          type: boolean
         incompatibleWith:
           type: array
           description: Keys of options that cannot be combined with this one
