@@ -8,6 +8,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 import ADG.Lobby.GameStatus;
 import ADG.Lobby.Room;
 import ADG.config.GamesConfig;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -126,6 +127,28 @@ public class RoomManager {
         room.setAnyPlayerCanSelectGame(anyPlayerCanSelectGame);
         room.setAnyPlayerCanSetOptions(anyPlayerCanSetOptions);
         emitRoomUpdate(roomId);
+        return room;
+    }
+
+    /**
+     * Chooses the game the room will play and clears the previous game's options. The host may,
+     * and so may anyone when the room's settings allow it.
+     */
+    public synchronized Room selectGame(String roomId, String callerId, String gameId) {
+        Room room = findRoom(roomId).orElseThrow(() -> roomNotFound(roomId));
+        if (!room.getCreatedByUserId().equals(callerId) && !room.isAnyPlayerCanSelectGame()) {
+            throw new ResponseStatusException(FORBIDDEN, "Only the host can choose the game.");
+        }
+        room.setGameId(gameId);
+        room.setGameOptions(new HashMap<>());
+        gamesConfig.findById(gameId).ifPresent(game -> {
+            room.setMinPlayers(game.getMinPlayers());
+            room.setMaxPlayers(game.getMaxPlayers());
+            room.setGameBaseUrl(game.getBaseUrl());
+            room.setEmbeddedSettings(game.isEmbeddedSettings());
+        });
+        emitRoomUpdate(roomId);
+        emitLobbyUpdate();
         return room;
     }
 

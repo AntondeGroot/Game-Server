@@ -9,6 +9,8 @@ import ADG.Lobby.Room;
 import ADG.generated.api.GamesApi;
 import ADG.generated.model.GameDto;
 import ADG.generated.model.GameOptionDto;
+import ADG.generated.model.RoomDto;
+import ADG.generated.model.SelectGameRequestDto;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,7 @@ public class GamesController implements GamesApi {
     @Autowired private RoomSseRegistry sseRegistry;
     @Autowired private LobbySseRegistry lobbySseRegistry;
     @Autowired private GameCatalogService gameCatalog;
+    @Autowired private RoomManager rooms;
 
     /** A proxy to the current request, for the language cookie and the admin role. */
     @Autowired private HttpServletRequest request;
@@ -67,6 +70,13 @@ public class GamesController implements GamesApi {
                     emitLobbyUpdate();
                 });
         return ResponseEntity.noContent().build();
+    }
+
+    @Override
+    public ResponseEntity<RoomDto> selectGame(String roomId, SelectGameRequestDto body) {
+        String callerId = ClientCookies.playerId(request);
+        Room room = rooms.selectGame(roomId, callerId, body.getGameId());
+        return ResponseEntity.ok(RoomDtos.detail(room, callerId));
     }
 
     private static GameDto toDto(GameDefinition game) {
