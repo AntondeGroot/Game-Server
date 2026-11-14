@@ -51,7 +51,7 @@ public class PlayersController implements PlayersApi {
     /** Joins the room, or changes the caller's name or picture in it; an admin needs no password. */
     @Override
     public ResponseEntity<RoomDto> joinRoom(String roomId, String playerId, JoinRoomRequestDto body) {
-        if (!playerId.equals(PlayerCookie.idOf(request))) {
+        if (!playerId.equals(ClientCookies.playerId(request))) {
             throw new ResponseStatusException(FORBIDDEN, "You can only join a room as yourself.");
         }
         Seat seat = new Seat(playerId, body.getName(), body.getProfileId());
@@ -66,7 +66,7 @@ public class PlayersController implements PlayersApi {
      */
     @Override
     public ResponseEntity<Void> leaveRoom(String roomId, String playerId) {
-        String cookiePlayerId = PlayerCookie.idOf(request);
+        String cookiePlayerId = ClientCookies.playerId(request);
         if (cookiePlayerId == null || !cookiePlayerId.equals(playerId)) {
             return ResponseEntity.status(403).build();
         }

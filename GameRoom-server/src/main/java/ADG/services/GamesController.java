@@ -1,8 +1,11 @@
 package ADG.services;
 
+import ADG.Lobby.GameDefinition;
 import ADG.Lobby.GameStatus;
 import ADG.Lobby.Room;
 import ADG.generated.api.GamesApi;
+import ADG.generated.model.GameDto;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +27,18 @@ public class GamesController implements GamesApi {
     @Autowired private RoomStore roomStore;
     @Autowired private RoomSseRegistry sseRegistry;
     @Autowired private LobbySseRegistry lobbySseRegistry;
+    @Autowired private GameCatalogService gameCatalog;
+
+    /** A proxy to the current request, for the language cookie. */
+    @Autowired private HttpServletRequest request;
+
+    @Override
+    public ResponseEntity<List<GameDto>> getGames() {
+        String language = ClientCookies.language(request);
+        return ResponseEntity.ok(gameCatalog.getAvailableGames(language).stream()
+                .map(GamesController::toDto)
+                .toList());
+    }
 
     @Override
     public ResponseEntity<Void> gameFinished(String roomId) {
@@ -38,6 +53,15 @@ public class GamesController implements GamesApi {
                     emitLobbyUpdate();
                 });
         return ResponseEntity.noContent().build();
+    }
+
+    private static GameDto toDto(GameDefinition game) {
+        return new GameDto()
+                .id(game.getId())
+                .name(game.getName())
+                .minPlayers(game.getMinPlayers())
+                .maxPlayers(game.getMaxPlayers())
+                .embeddedSettings(game.isEmbeddedSettings());
     }
 
     private void emitLobbyUpdate() {

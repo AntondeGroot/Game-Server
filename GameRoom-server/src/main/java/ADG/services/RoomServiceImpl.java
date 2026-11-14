@@ -10,14 +10,11 @@ import ADG.config.GamesConfig;
 import ADG.config.SpriteSheetsConfig;
 import com.google.gwt.user.server.rpc.jakarta.RemoteServiceServlet;
 import jakarta.servlet.annotation.WebServlet;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -40,8 +37,8 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     @Autowired
     private GamesConfig gamesConfig;
 
-    /** Localized game names fetched from each game ({baseUrl}/game-name), keyed "gameId|locale". */
-    private final Map<String, String> gameNameCache = new ConcurrentHashMap<>();
+    @Autowired
+    private GameCatalogService gameCatalog;
 
     @Autowired
     private SpriteSheetsConfig spriteSheetsConfig;
@@ -112,13 +109,10 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
         }
     }
 
+    /** The caller's player id, or "" without a playerid cookie. */
     String getPlayerIdFromRequest() {
-        jakarta.servlet.http.Cookie[] cookies = getThreadLocalRequest().getCookies();
-        if (cookies == null) return "";
-        for (jakarta.servlet.http.Cookie c : cookies) {
-            if ("playerid".equals(c.getName())) return c.getValue();
-        }
-        return "";
+        String playerId = ClientCookies.playerId(getThreadLocalRequest());
+        return playerId == null ? "" : playerId;
     }
 
     @Override
@@ -420,71 +414,15 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
         }
     }
 
+    // Not synchronized: it reads no room state, and the health checks can take seconds.
     @Override
-    public synchronized ArrayList<GameDefinition> getAvailableGames() {
-        String locale = getLocaleFromRequest();
-        ArrayList<GameDefinition> reachable = new ArrayList<>();
-        for (GameDefinition game : gamesConfig.getAvailable()) {
-            if (isReachable(game.getHealthUrl())) {
-                reachable.add(withLocalizedName(game, locale));
-            }
-        }
-        return reachable;
+    public ArrayList<GameDefinition> getAvailableGames() {
+        return new ArrayList<>(gameCatalog.getAvailableGames(getLocaleFromRequest()));
     }
 
     /** The GameRoom UI language, from the "language" cookie (default English). */
     String getLocaleFromRequest() {
-        if (getThreadLocalRequest() == null) return "en"; // e.g. called off a request thread
-        jakarta.servlet.http.Cookie[] cookies = getThreadLocalRequest().getCookies();
-        if (cookies != null) {
-            for (jakarta.servlet.http.Cookie c : cookies) {
-                if ("language".equals(c.getName()) && c.getValue() != null && !c.getValue().isBlank()) {
-                    return c.getValue().toLowerCase();
-                }
-            }
-        }
-        return "en";
-    }
-
-    /**
-     * A copy of {@code game} whose name is the localized name served by the game
-     * itself ({baseUrl}/game-name?locale=xx), so the game owns its name in every
-     * language (single source of truth). Cached per (game, locale); falls back to
-     * the configured name if the game doesn't provide one.
-     */
-    private GameDefinition withLocalizedName(GameDefinition game, String locale) {
-        String cacheKey = game.getId() + "|" + locale;
-        String name = gameNameCache.get(cacheKey);
-        if (name == null) {
-            name = fetchGameName(game.getBaseUrl(), locale);
-            if (name != null) {
-                gameNameCache.put(cacheKey, name); // only cache successful lookups
-            }
-        }
-        GameDefinition copy = new GameDefinition();
-        copy.setId(game.getId());
-        copy.setName(name != null ? name : game.getName());
-        copy.setBaseUrl(game.getBaseUrl());
-        copy.setHealthUrl(game.getHealthUrl());
-        copy.setMinPlayers(game.getMinPlayers());
-        copy.setMaxPlayers(game.getMaxPlayers());
-        copy.setEmbeddedSettings(game.isEmbeddedSettings());
-        return copy;
-    }
-
-    /** GETs {baseUrl}/game-name?locale=xx and returns the name, or null on any failure. */
-    private String fetchGameName(String baseUrl, String locale) {
-        try {
-            Map<?, ?> body = restTemplate.getForObject(
-                    baseUrl + "/game-name?locale=" + locale, Map.class);
-            if (body != null && body.get("name") != null) {
-                return body.get("name").toString();
-            }
-        } catch (Exception e) {
-            logger.warn("Could not fetch localized game name from {} (locale {}): {}",
-                    baseUrl, locale, e.getMessage());
-        }
-        return null;
+        return ClientCookies.language(getThreadLocalRequest());
     }
 
     /**
@@ -689,18 +627,5 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
             return hce.getStatusText();
         }
         return e.getMessage();
-    }
-
-    boolean isReachable(String baseUrl) {
-        try {
-            HttpURLConnection connection = (HttpURLConnection) new URL(baseUrl).openConnection();
-            connection.setConnectTimeout(1500);
-            connection.setReadTimeout(1500);
-            connection.setRequestMethod("HEAD");
-            int code = connection.getResponseCode();
-            return code < 500;
-        } catch (Exception e) {
-            return false;
-        }
     }
 }
