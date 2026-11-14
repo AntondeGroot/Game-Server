@@ -44,7 +44,7 @@ public class RoomsController implements RoomsApi {
 
     @Override
     public ResponseEntity<RoomDto> createRoom(CreateRoomRequestDto body) {
-        String callerId = PlayerCookie.idOf(request);
+        String callerId = ClientCookies.playerId(request);
         if (callerId == null) {
             throw new ResponseStatusException(BAD_REQUEST, "The playerid cookie is missing.");
         }
@@ -54,18 +54,18 @@ public class RoomsController implements RoomsApi {
 
     @Override
     public ResponseEntity<RoomDto> getRoom(String roomId) {
-        return ResponseEntity.ok(RoomDtos.detail(rooms.lobbyRoom(roomId), PlayerCookie.idOf(request)));
+        return ResponseEntity.ok(RoomDtos.detail(rooms.lobbyRoom(roomId), ClientCookies.playerId(request)));
     }
 
     @Override
     public ResponseEntity<Void> deleteRoom(String roomId) {
-        rooms.deleteRoom(roomId, PlayerCookie.idOf(request), request.isUserInRole("ADMIN"));
+        rooms.deleteRoom(roomId, ClientCookies.playerId(request), request.isUserInRole("ADMIN"));
         return ResponseEntity.noContent().build();
     }
 
     @Override
     public ResponseEntity<RoomDto> setRoomSettings(String roomId, RoomSettingsDto settings) {
-        String callerId = PlayerCookie.idOf(request);
+        String callerId = ClientCookies.playerId(request);
         Room room = rooms.changeSettings(roomId, callerId,
                 settings.getAnyPlayerCanSelectGame(), settings.getAnyPlayerCanSetOptions());
         return ResponseEntity.ok(RoomDtos.detail(room, callerId));
@@ -73,19 +73,19 @@ public class RoomsController implements RoomsApi {
 
     @Override
     public ResponseEntity<RoomPasswordDto> generateRoomPassword(String roomId) {
-        String password = rooms.protectWithGeneratedPassword(roomId, PlayerCookie.idOf(request));
+        String password = rooms.protectWithGeneratedPassword(roomId, ClientCookies.playerId(request));
         return ResponseEntity.ok(new RoomPasswordDto(password));
     }
 
     @Override
     public ResponseEntity<RoomPasswordDto> setRoomPassword(String roomId, RoomPasswordDto body) {
-        String stored = rooms.protectWithPassword(roomId, PlayerCookie.idOf(request), body.getPassword());
+        String stored = rooms.protectWithPassword(roomId, ClientCookies.playerId(request), body.getPassword());
         return ResponseEntity.ok(new RoomPasswordDto(stored));
     }
 
     @Override
     public ResponseEntity<Void> removeRoomPassword(String roomId) {
-        rooms.removePassword(roomId, PlayerCookie.idOf(request));
+        rooms.removePassword(roomId, ClientCookies.playerId(request));
         return ResponseEntity.noContent().build();
     }
 

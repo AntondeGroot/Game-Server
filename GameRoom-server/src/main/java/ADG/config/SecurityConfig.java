@@ -1,7 +1,6 @@
 package ADG.config;
 
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
+import ADG.services.ClientCookies;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -37,12 +36,7 @@ public class SecurityConfig {
                 // admin a "Login" shortcut even after the Spring Security session expires.
                 // The cookie is NOT HttpOnly so that GWT can read it client-side.
                 .successHandler((req, res, auth) -> {
-                    Cookie hint = new Cookie("admin_hint", "1");
-                    hint.setMaxAge(400 * 24 * 60 * 60); // 400 days
-                    hint.setPath("/");
-                    hint.setHttpOnly(false);
-                    hint.setSecure(req.isSecure());
-                    res.addCookie(hint);
+                    res.addCookie(ClientCookies.longLived(ClientCookies.ADMIN_HINT, "1", req));
                     res.sendRedirect("/");
                 })
             )

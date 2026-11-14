@@ -23,7 +23,7 @@ class RoomSseController {
 
     @GetMapping(value = "/rooms/{roomId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     SseEmitter stream(@PathVariable("roomId") String roomId,
-                      @CookieValue(value = "playerid", required = false) String playerId,
+                      @CookieValue(value = ClientCookies.PLAYER_ID, required = false) String playerId,
                       HttpServletResponse response) {
         response.setHeader("X-Accel-Buffering", "no");
 

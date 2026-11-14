@@ -372,6 +372,9 @@ paths:
   /games:
     get:
       summary: List the games a room can play
+      description: |
+        Only games whose health check answers are listed. Each name is the game's own name in
+        the language from the `language` cookie (English without one).
       operationId: getGames
       tags: [games]
       responses:

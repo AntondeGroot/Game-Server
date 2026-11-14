@@ -2,7 +2,7 @@ package ADG.services;
 
 import ADG.Lobby.GameStatus;
 import ADG.Lobby.Room;
-import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,12 +21,10 @@ public class RejoinController {
     public void rejoin(
             @RequestParam("pid") String playerId,
             @RequestParam(value = "rid", required = false) String roomId,
+            HttpServletRequest request,
             HttpServletResponse response) throws IOException {
 
-        Cookie cookie = new Cookie("playerid", playerId);
-        cookie.setPath("/");
-        cookie.setMaxAge(365 * 24 * 60 * 60);
-        response.addCookie(cookie);
+        response.addCookie(ClientCookies.longLived(ClientCookies.PLAYER_ID, playerId, request));
 
         if (roomId != null) {
             Room room = roomStore.rooms.stream()
