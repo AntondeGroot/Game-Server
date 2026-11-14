@@ -1,6 +1,7 @@
 package ADG.services;
 
 import ADG.Lobby.GameDefinition;
+import ADG.Lobby.GameOption;
 import ADG.Lobby.GameStatus;
 import ADG.Lobby.Room;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,15 +12,20 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import jakarta.servlet.http.Cookie;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.http.MediaType;
 
+import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -88,6 +94,66 @@ class GamesControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void getGameOptionsListsTheOptionsTheGameOffers() throws Exception {
+        GameOption rounds = new GameOption();
+        rounds.setKey("rounds");
+        rounds.setLabel("Rounds");
+        rounds.setType("number");
+        rounds.setDefaultValue("3");
+        rounds.setMinValue(1);
+        rounds.setMaxValue(10);
+        when(gameCatalog.optionsFor("keezen", "en", false)).thenReturn(Optional.of(List.of(rounds)));
+
+        mockMvc.perform(get("/games/keezen/options"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].key").value("rounds"))
+                .andExpect(jsonPath("$[0].label").value("Rounds"))
+                .andExpect(jsonPath("$[0].type").value("number"))
+                .andExpect(jsonPath("$[0].defaultValue").value("3"))
+                .andExpect(jsonPath("$[0].minValue").value(1))
+                .andExpect(jsonPath("$[0].maxValue").value(10))
+                .andExpect(jsonPath("$[0].adminOnly").doesNotExist());
+    }
+
+    @Test
+    void getGameOptionsAnswers404ForAnUnknownGame() throws Exception {
+        when(gameCatalog.optionsFor("chess", "en", false)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/games/chess/options"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.detail", containsString("chess")));
+    }
+
+    @Test
+    void getGameOptionsShowsALoggedInAdminTheAdminOnlyOptions() throws Exception {
+        GameOption birthdayMode = new GameOption();
+        birthdayMode.setKey("birthdayMode");
+        birthdayMode.setType("boolean");
+        when(gameCatalog.optionsFor("keezen", "en", true)).thenReturn(Optional.of(List.of(birthdayMode)));
+        // admin:test matches the BCrypt hash in test/resources/application.yaml.
+        String adminAuth = "Basic " + Base64.getEncoder().encodeToString("admin:test".getBytes());
+
+        mockMvc.perform(get("/games/keezen/options").header("Authorization", adminAuth))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].key").value("birthdayMode"));
+    }
+
+    @Test
+    void getGameOptionsLabelsTheOptionsInTheLanguageFromTheCookie() throws Exception {
+        GameOption rounds = new GameOption();
+        rounds.setKey("rounds");
+        rounds.setLabel("Rondes");
+        rounds.setType("number");
+        when(gameCatalog.optionsFor("keezen", "nl", false)).thenReturn(Optional.of(List.of(rounds)));
+
+        mockMvc.perform(get("/games/keezen/options").cookie(new Cookie("language", "nl")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].label").value("Rondes"));
     }
 
     private GameDefinition game(String id, String name, int minPlayers, int maxPlayers, boolean embeddedSettings) {

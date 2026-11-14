@@ -19,8 +19,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -337,27 +335,8 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     }
 
     @Override
-    public synchronized ArrayList<GameOption> getGameOptions(String gameId) throws RoomServiceException {
-        GameDefinition game = gamesConfig.findById(gameId).orElse(null);
-        if (game == null) return new ArrayList<>();
-        try {
-            // Fetch the options localized to the lobby language, the same way the game name is
-            // (see fetchGameName) — the game owns its option labels in every language. A game
-            // that ignores ?locale= just returns its default labels, so this stays compatible
-            // with every game (e.g. qwixx).
-            String locale = getLocaleFromRequest();
-            GameOption[] options = restTemplate.getForObject(
-                    game.getBaseUrl() + "/game-options?locale=" + locale, GameOption[].class);
-            if (options == null) return new ArrayList<>();
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            boolean isAdmin = auth != null && auth.getAuthorities().stream()
-                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-            return java.util.Arrays.stream(options)
-                    .filter(o -> !o.isAdminOnly() || isAdmin)
-                    .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
-        } catch (RestClientException e) {
-            return new ArrayList<>();
-        }
+    public ArrayList<GameOption> getGameOptions(String gameId) throws RoomServiceException {
+        return new ArrayList<>(gameCatalog.optionsFor(gameId, getLocaleFromRequest(), AdminCheck.isAdmin()).orElse(List.of()));
     }
 
     @Override

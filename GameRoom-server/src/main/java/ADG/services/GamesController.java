@@ -1,16 +1,21 @@
 package ADG.services;
 
+import static org.springframework.http.HttpStatus.NOT_FOUND;
+
 import ADG.Lobby.GameDefinition;
+import ADG.Lobby.GameOption;
 import ADG.Lobby.GameStatus;
 import ADG.Lobby.Room;
 import ADG.generated.api.GamesApi;
 import ADG.generated.model.GameDto;
+import ADG.generated.model.GameOptionDto;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,7 +34,7 @@ public class GamesController implements GamesApi {
     @Autowired private LobbySseRegistry lobbySseRegistry;
     @Autowired private GameCatalogService gameCatalog;
 
-    /** A proxy to the current request, for the language cookie. */
+    /** A proxy to the current request, for the language cookie and the admin role. */
     @Autowired private HttpServletRequest request;
 
     @Override
@@ -38,6 +43,15 @@ public class GamesController implements GamesApi {
         return ResponseEntity.ok(gameCatalog.getAvailableGames(language).stream()
                 .map(GamesController::toDto)
                 .toList());
+    }
+
+    @Override
+    public ResponseEntity<List<GameOptionDto>> getGameOptions(String gameId) {
+        String language = ClientCookies.language(request);
+        boolean isAdmin = request.isUserInRole("ADMIN");
+        return gameCatalog.optionsFor(gameId, language, isAdmin)
+                .map(options -> ResponseEntity.ok(options.stream().map(GamesController::toDto).toList()))
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "There is no game " + gameId + "."));
     }
 
     @Override
@@ -62,6 +76,21 @@ public class GamesController implements GamesApi {
                 .minPlayers(game.getMinPlayers())
                 .maxPlayers(game.getMaxPlayers())
                 .embeddedSettings(game.isEmbeddedSettings());
+    }
+
+    private static GameOptionDto toDto(GameOption option) {
+        return new GameOptionDto()
+                .key(option.getKey())
+                .label(option.getLabel())
+                .description(option.getDescription())
+                .labelKey(option.getLabelKey())
+                .descriptionKey(option.getDescriptionKey())
+                .type(option.getType())
+                .defaultValue(option.getDefaultValue())
+                .choices(option.getChoices())
+                .minValue(option.getMinValue())
+                .maxValue(option.getMaxValue())
+                .incompatibleWith(option.getIncompatibleWith());
     }
 
     private void emitLobbyUpdate() {

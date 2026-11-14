@@ -1,16 +1,19 @@
 package ADG.services;
 
 import ADG.Lobby.GameDefinition;
+import ADG.Lobby.GameOption;
 import ADG.config.GamesConfig;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 /**
@@ -86,5 +89,33 @@ public class GameCatalogService {
                     baseUrl, language, e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * The options {@code gameId} offers, labelled in {@code language}; options the game marks
+     * adminOnly (experimental or unpublished features) only for admins. Empty when the game
+     * is down; {@link Optional#empty()} when no such game is configured.
+     */
+    public Optional<List<GameOption>> optionsFor(String gameId, String language, boolean isAdmin) {
+        return gamesConfig.findById(gameId)
+                .map(game -> fetchOptions(game.getBaseUrl(), language).stream()
+                        .filter(option -> !option.isAdminOnly() || isAdmin)
+                        .toList());
+    }
+
+    /**
+     * GETs {baseUrl}/game-options?locale=xx, so the game owns its option labels in every
+     * language (a game that ignores the locale returns its default labels). Empty on failure.
+     */
+    private List<GameOption> fetchOptions(String baseUrl, String language) {
+        try {
+            GameOption[] options = restTemplate.getForObject(
+                    baseUrl + "/game-options?locale=" + language, GameOption[].class);
+            return options == null ? List.of() : List.of(options);
+        } catch (RestClientException e) {
+            logger.warn("Could not fetch game options from {} (locale {}): {}",
+                    baseUrl, language, e.getMessage());
+            return List.of();
+        }
     }
 }
