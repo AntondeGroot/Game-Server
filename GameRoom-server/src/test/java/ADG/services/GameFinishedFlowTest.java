@@ -84,7 +84,10 @@ class GameFinishedFlowTest {
         inject(sessions, "rooms",              roomManager);
         inject(sessions, "gamesConfig",        gamesConfig);
         inject(sessions, "spriteSheetsConfig", spriteSheetsConfig);
-        inject(sessions, "restTemplate",       restTemplate);
+        GameApi gameApi = new GameApi();
+        gameApi.restTemplate = restTemplate;
+        inject(sessions, "roomStore",          roomStore);
+        inject(sessions, "gameApi",            gameApi);
         inject(sessions, "serverPort",         4100);
         return sessions;
     }

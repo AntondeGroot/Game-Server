@@ -193,34 +193,10 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
      */
     @Override
     public synchronized void endGame(String roomId) throws RoomServiceException {
-        String callerId = getPlayerIdFromRequest();
-        Room found = roomStore.rooms.stream()
-                .filter(r -> r.getId().equals(roomId))
-                .findFirst()
-                .orElseThrow(() -> new RoomServiceException("Room not found: " + roomId));
-        boolean isCreator = found.getCreatedByUserId().equals(callerId);
-        if (!isCreator && !found.isAnyPlayerCanSetOptions()) {
-            throw new RoomServiceException("Not authorized to end the game");
-        }
-        if (found.getStatus() != GameStatus.PLAYING) {
-            return;
-        }
-        logger.info("Game in room {} ended by its host", roomId);
-        deleteGameSession(found);
-        resetRoomToWaiting(found);
-        emitLobbyUpdate();
-    }
-
-    /** Best-effort removal of a room's session on the game server; a failure is not fatal. */
-    private void deleteGameSession(Room room) {
-        String sessionId = room.getGameSessionId();
-        if (sessionId == null) return;
-        Optional<GameDefinition> game = gamesConfig.findById(room.getGameId());
-        if (game.isEmpty()) return;
         try {
-            restTemplate.delete(game.get().getBaseUrl() + "/games/" + sessionId);
-        } catch (RestClientException e) {
-            logger.warn("Failed to delete game session {}: {}", sessionId, e.getMessage());
+            gameSessions.end(roomId, getPlayerIdFromRequest());
+        } catch (ResponseStatusException e) {
+            throw new RoomServiceException(e.getReason());
         }
     }
 
@@ -360,7 +336,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
             } catch (RestClientException e) {
                 logger.warn("Game session no longer exists for room {}: {} — returning the room to the lobby",
                         room.getId(), e.getMessage());
-                resetRoomToWaiting(room);
+                gameSessions.returnToWaiting(room);
                 anyChanged = true;
                 continue;
             }
@@ -380,7 +356,7 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                 if (sseRegistry.hasSubscribers(room.getId())) {
                     logger.info("Game session finished for room {} and a player is back — resetting to WAITING",
                             room.getId());
-                    resetRoomToWaiting(room);
+                    gameSessions.returnToWaiting(room);
                     emitLobbyUpdate();
                     continue;
                 }
@@ -415,29 +391,12 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
                 Long firstSeenAt = roomStore.gameStateVersionTimestamps.get(room.getId());
                 if (firstSeenAt != null && now - firstSeenAt >= INACTIVE_GAME_TTL_MS) {
                     logger.info("Game state unchanged for 1 hour in room {}, removing stale game", room.getId());
-                    deleteGameSession(room);
-                    resetRoomToWaiting(room);
+                    gameSessions.closeSession(room);
+                    gameSessions.returnToWaiting(room);
                     anyChanged = true;
                 }
             }
         }
         if (anyChanged) emitLobbyUpdate();
-    }
-
-    /**
-     * Returns a room to the lobby once its game is over. Only the game link is cleared —
-     * the room and its players survive, because the end of a game is not the end of the
-     * evening: the same group can pick another game straight from the same room.
-     *
-     * A room nobody ever comes back to is not leaked: it becomes an ordinary WAITING room
-     * and {@link #deleteInactiveRooms()} reaps it after {@link #EMPTY_ROOM_TTL_MS} without
-     * a single live SSE connection.
-     */
-    private void resetRoomToWaiting(Room room) {
-        room.setStatus(GameStatus.WAITING);
-        room.setGameSessionId(null);
-        roomStore.gameStateVersions.remove(room.getId());
-        roomStore.gameStateVersionTimestamps.remove(room.getId());
-        emitRoomUpdate(room.getId());
     }
 }

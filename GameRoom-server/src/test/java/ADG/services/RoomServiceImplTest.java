@@ -97,17 +97,20 @@ class RoomServiceImplTest {
     /** The real game starter, sharing this test's room rules and mocks. */
     private GameSessions gameSessions(RoomManager roomManager) throws Exception {
         GameSessions sessions = new GameSessions();
+        GameApi gameApi = new GameApi();
+        gameApi.restTemplate = restTemplate;
         Map<String, Object> fields = Map.of(
                 "rooms", roomManager,
+                "roomStore", roomStore,
                 "gamesConfig", gamesConfig,
                 "spriteSheetsConfig", spriteSheetsConfig,
+                "gameApi", gameApi,
                 "serverPort", 4100);
         for (Map.Entry<String, Object> field : fields.entrySet()) {
             Field f = GameSessions.class.getDeclaredField(field.getKey());
             f.setAccessible(true);
             f.set(sessions, field.getValue());
         }
-        sessions.restTemplate = restTemplate;
         return sessions;
     }
 
@@ -1396,6 +1399,15 @@ class RoomServiceImplTest {
         assertNotNull(updated);
         assertEquals(GameStatus.WAITING, updated.getStatus());
         assertNull(updated.getGameSessionId());
+    }
+
+    @Test
+    void endGameForAnUnknownRoomThrowsAndContactsNoGame() {
+        RoomServiceException ex = assertThrows(RoomServiceException.class,
+                () -> service.endGame("no-such-room"));
+
+        assertTrue(ex.getMessage().contains("no-such-room"), ex.getMessage());
+        verifyNoInteractions(restTemplate);
     }
 
     // ── startGame guard: no game selected ────────────────────────────────────
