@@ -12,6 +12,7 @@ import ADG.generated.model.GameOptionDto;
 import ADG.generated.model.RoomDto;
 import ADG.generated.model.SelectGameRequestDto;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,6 +77,13 @@ public class GamesController implements GamesApi {
     public ResponseEntity<RoomDto> selectGame(String roomId, SelectGameRequestDto body) {
         String callerId = ClientCookies.playerId(request);
         Room room = rooms.selectGame(roomId, callerId, body.getGameId());
+        return ResponseEntity.ok(RoomDtos.detail(room, callerId));
+    }
+
+    @Override
+    public ResponseEntity<RoomDto> setGameOptions(String roomId, Map<String, String> options) {
+        String callerId = ClientCookies.playerId(request);
+        Room room = rooms.setGameOptions(roomId, callerId, options);
         return ResponseEntity.ok(RoomDtos.detail(room, callerId));
     }
 
