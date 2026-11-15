@@ -43,7 +43,9 @@ Decisions:
 - **ESLint with zero warnings:**
   - sonarjs, with cognitive complexity capped at 15 and `todo-tag` off;
   - size caps: 200-line files, 25-line functions, one class per file;
-  - `eslint-plugin-boundaries` v6 with the TypeScript import resolver. Components may import
+  - `eslint-plugin-boundaries` v7.4.4 or later with the TypeScript import resolver (v6 and early
+    v7 pull in a `handlebars` with a critical advisory). Layers are file categories by suffix
+    (`*.service.ts`, `*.util.ts`, …), since Angular gives components no suffix. Components may import
     the generated DTO types but not the generated API services; data access goes through an
     app service.
 - **Stylelint:** the standard SCSS config, plus a local rule that every `:hover` sits inside

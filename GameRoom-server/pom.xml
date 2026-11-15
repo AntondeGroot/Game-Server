@@ -15,6 +15,8 @@
     <!-- The server can use Java 17 syntax -->
     <maven.compiler.source>17</maven.compiler.source>
     <maven.compiler.target>17</maven.compiler.target>
+    <!-- -Dnext-client.skip=true leaves the Angular client (../client, served at /next/) out of the jar -->
+    <next-client.skip>false</next-client.skip>
   </properties>
 
   <dependencies>
@@ -169,6 +171,44 @@
           </execution>
         </executions>
       </plugin>
+      <!-- The Angular client: installed, generated from the API spec, built with base /next/, and
+           copied into the jar's public/next. Runs at prepare-package, so `mvn test` stays fast. -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.7.0</version>
+        <configuration>
+          <skip>${next-client.skip}</skip>
+          <executable>npm</executable>
+          <workingDirectory>${project.basedir}/../client</workingDirectory>
+        </configuration>
+        <executions>
+          <execution>
+            <id>next-client-install</id>
+            <phase>prepare-package</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <arguments><argument>ci</argument></arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>next-client-generate</id>
+            <phase>prepare-package</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <arguments><argument>run</argument><argument>generate</argument></arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>next-client-build</id>
+            <phase>prepare-package</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <arguments><argument>run</argument><argument>build</argument></arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-resources-plugin</artifactId>
@@ -188,6 +228,23 @@
                   <includes>
                     <include>**/*.*</include>
                   </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>copy-next-client</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <skip>${next-client.skip}</skip>
+              <outputDirectory>${project.build.outputDirectory}/public/next</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/../client/dist/client/browser</directory>
+                  <filtering>false</filtering>
                 </resource>
               </resources>
             </configuration>
