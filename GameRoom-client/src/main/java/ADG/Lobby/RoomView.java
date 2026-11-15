@@ -523,13 +523,27 @@ public class RoomView extends Composite {
                 .alphaDecay(0.01)
                 .velocityDecay(0.55);
 
-            // pulsate repulsion and link distance on independent slow sine waves
+            // Pulse each player's repulsion and each link's length at its own speed and phase.
+            // With one shared pulse everyone moved in step and 5-6 players settled into a
+            // regular polygon that only breathed; out of step, the shape keeps changing.
+            players.forEach(function(p) {
+                p.pulseSpeed = 0.25 + Math.random() * 0.45;
+                p.pulsePhase = Math.random() * 2 * Math.PI;
+            });
+            links.forEach(function(l) {
+                l.pulseSpeed = 0.2 + Math.random() * 0.4;
+                l.pulsePhase = Math.random() * 2 * Math.PI;
+            });
             var myGen = gen;
             d3.timer(function(elapsed) {
                 if (container.__gen !== myGen) return true;
                 var t = elapsed / 1000;
-                chargeForce.strength((-240 + Math.sin(t * 0.45) * 90) * scale);
-                linkForce.distance((160 + Math.sin(t * 0.3) * 55) * scale);
+                chargeForce.strength(function(p) {
+                    return (-240 + Math.sin(t * p.pulseSpeed + p.pulsePhase) * 170) * scale;
+                });
+                linkForce.distance(function(l) {
+                    return (160 + Math.sin(t * l.pulseSpeed + l.pulsePhase) * 80) * scale;
+                });
             });
 
             sim.on('tick', function() {
