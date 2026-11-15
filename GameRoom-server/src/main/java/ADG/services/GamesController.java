@@ -68,6 +68,12 @@ public class GamesController implements GamesApi {
     }
 
     @Override
+    public ResponseEntity<Void> endGame(String roomId) {
+        gameSessions.end(roomId, ClientCookies.playerId(request));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Override
     public ResponseEntity<Void> gameFinished(String roomId) {
         roomStore.rooms.stream()
                 .filter(r -> roomId.equals(r.getId()))
