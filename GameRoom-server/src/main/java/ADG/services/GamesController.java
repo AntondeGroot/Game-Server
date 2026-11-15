@@ -1,5 +1,6 @@
 package ADG.services;
 
+import static org.springframework.http.HttpStatus.CREATED;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 import ADG.Lobby.GameDefinition;
@@ -37,6 +38,7 @@ public class GamesController implements GamesApi {
     @Autowired private LobbySseRegistry lobbySseRegistry;
     @Autowired private GameCatalogService gameCatalog;
     @Autowired private RoomManager rooms;
+    @Autowired private GameSessions gameSessions;
 
     /** A proxy to the current request, for the language cookie and the admin role. */
     @Autowired private HttpServletRequest request;
@@ -56,6 +58,13 @@ public class GamesController implements GamesApi {
         return gameCatalog.optionsFor(gameId, language, isAdmin)
                 .map(options -> ResponseEntity.ok(options.stream().map(GamesController::toDto).toList()))
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "There is no game " + gameId + "."));
+    }
+
+    @Override
+    public ResponseEntity<RoomDto> startGame(String roomId) {
+        Room room = gameSessions.start(roomId);
+        return ResponseEntity.status(CREATED)
+                .body(RoomDtos.detail(room, ClientCookies.playerId(request)));
     }
 
     @Override
