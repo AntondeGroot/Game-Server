@@ -41,7 +41,7 @@ class StartGameTest {
 
   @Autowired MockMvc mockMvc;
   @Autowired RoomStore roomStore;
-  @Autowired GameSessions gameSessions;
+  @Autowired GameApi gameApi;
 
   private final RestTemplate gameServer = mock(RestTemplate.class);
   private RestTemplate realRestTemplate;
@@ -49,8 +49,8 @@ class StartGameTest {
 
   @BeforeEach
   void createRoomWithQwixxAsHost() throws Exception {
-    realRestTemplate = gameSessions.restTemplate;
-    gameSessions.restTemplate = gameServer;
+    realRestTemplate = gameApi.restTemplate;
+    gameApi.restTemplate = gameServer;
     roomStore.rooms.clear();
     roomId = createRoom(HOST, "Dragon's Den");
     mockMvc.perform(put("/rooms/" + roomId + "/game")
@@ -62,8 +62,8 @@ class StartGameTest {
   }
 
   @AfterEach
-  void restoreTheRealGameServerClient() {
-    gameSessions.restTemplate = realRestTemplate;
+  void restoreTheRealGameApiCalls() {
+    gameApi.restTemplate = realRestTemplate;
   }
 
   @Test
