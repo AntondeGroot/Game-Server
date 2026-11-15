@@ -1,0 +1,10 @@
+{
+  "/rooms": { "target": "http://localhost:4100", "secure": false },
+  "/lobby": { "target": "http://localhost:4100", "secure": false },
+  "/games": { "target": "http://localhost:4100", "secure": false },
+  "/chat": { "target": "http://localhost:4100", "secure": false },
+  "/profile-pic": { "target": "http://localhost:4100", "secure": false },
+  "/sprite-sheets": { "target": "http://localhost:4100", "secure": false },
+  "/room-names": { "target": "http://localhost:4100", "secure": false },
+  "/random-room-name": { "target": "http://localhost:4100", "secure": false }
+}
