@@ -10,6 +10,7 @@ import ADG.Lobby.Room;
 import ADG.config.GamesConfig;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -147,6 +148,21 @@ public class RoomManager {
             room.setGameBaseUrl(game.getBaseUrl());
             room.setEmbeddedSettings(game.isEmbeddedSettings());
         });
+        emitRoomUpdate(roomId);
+        emitLobbyUpdate();
+        return room;
+    }
+
+    /**
+     * Replaces the options for the room's game. The host may, and so may anyone when the room's
+     * settings allow it.
+     */
+    public synchronized Room setGameOptions(String roomId, String callerId, Map<String, String> options) {
+        Room room = findRoom(roomId).orElseThrow(() -> roomNotFound(roomId));
+        if (!room.getCreatedByUserId().equals(callerId) && !room.isAnyPlayerCanSetOptions()) {
+            throw new ResponseStatusException(FORBIDDEN, "Only the host can change the game options.");
+        }
+        room.setGameOptions(new HashMap<>(options));
         emitRoomUpdate(roomId);
         emitLobbyUpdate();
         return room;
