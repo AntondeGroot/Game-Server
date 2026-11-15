@@ -13,6 +13,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import java.nio.charset.StandardCharsets;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
@@ -76,17 +80,35 @@ class RoomServiceImplTest {
 
         Field roomManagerField = RoomServiceImpl.class.getDeclaredField("roomManager");
         roomManagerField.setAccessible(true);
-        roomManagerField.set(service, roomManager());
+        RoomManager roomManager = roomManager();
+        roomManagerField.set(service, roomManager);
 
-        Field spriteSheetsConfigField = RoomServiceImpl.class.getDeclaredField("spriteSheetsConfig");
-        spriteSheetsConfigField.setAccessible(true);
-        spriteSheetsConfigField.set(service, spriteSheetsConfig);
+        Field gameSessionsField = RoomServiceImpl.class.getDeclaredField("gameSessions");
+        gameSessionsField.setAccessible(true);
+        gameSessionsField.set(service, gameSessions(roomManager));
 
         lenient().when(spriteSheetsConfig.getSheets()).thenReturn(List.of());
 
         lenient().when(gamesConfig.findById(anyString())).thenReturn(Optional.empty());
         // Default: caller is the room creator used by buildRoom().
         lenient().doReturn("creator-1").when(service).getPlayerIdFromRequest();
+    }
+
+    /** The real game starter, sharing this test's room rules and mocks. */
+    private GameSessions gameSessions(RoomManager roomManager) throws Exception {
+        GameSessions sessions = new GameSessions();
+        Map<String, Object> fields = Map.of(
+                "rooms", roomManager,
+                "gamesConfig", gamesConfig,
+                "spriteSheetsConfig", spriteSheetsConfig,
+                "serverPort", 4100);
+        for (Map.Entry<String, Object> field : fields.entrySet()) {
+            Field f = GameSessions.class.getDeclaredField(field.getKey());
+            f.setAccessible(true);
+            f.set(sessions, field.getValue());
+        }
+        sessions.restTemplate = restTemplate;
+        return sessions;
     }
 
     /** The real room rules, sharing this test's room store and mocks. */
@@ -1464,5 +1486,102 @@ class RoomServiceImplTest {
         Map<String, Object> sentOptions = (Map<String, Object>) sentRequest.get("gameOptions");
         assertEquals(true, sentOptions.get("base"),
                 "the 'base' default (true) must be forwarded to the game server");
+    }
+
+    // ── startGame: characterization before the move to its own service ───────
+
+    @Test
+    void startGameWithTooFewPlayersThrowsAndCreatesNoSession() throws RoomServiceException {
+        Room room = buildRoom("Alpha");
+        room.getPlayerNames().put("p1", "Alice");
+        service.createRoom(room);
+        service.publishRoom(room.getId());
+        GameDefinition gameDef = gameDefWithBaseUrl("http://game-server");
+        gameDef.setMinPlayers(2);
+        when(gamesConfig.findById("keezen")).thenReturn(Optional.of(gameDef));
+
+        RoomServiceException ex = assertThrows(RoomServiceException.class,
+                () -> service.startGame(room.getId()));
+
+        assertTrue(ex.getMessage().contains("Not enough players"), ex.getMessage());
+        verifyNoInteractions(restTemplate);
+        assertEquals(GameStatus.WAITING, service.getRoomById(room.getId()).getStatus());
+    }
+
+    @Test
+    void startGameThrowsAndKeepsTheRoomWaitingWhenTheGameServerCannotCreateASession()
+            throws RoomServiceException {
+        Room room = buildRoom("Alpha");
+        room.getPlayerNames().put("p1", "Alice");
+        room.getGameOptions().put("base", "true");
+        service.createRoom(room);
+        service.publishRoom(room.getId());
+        when(gamesConfig.findById("keezen")).thenReturn(Optional.of(gameDefWithBaseUrl("http://game-server")));
+        when(restTemplate.postForObject(eq("http://game-server/games"), any(), eq(Map.class)))
+                .thenThrow(new ResourceAccessException("Connection refused"));
+
+        RoomServiceException ex = assertThrows(RoomServiceException.class,
+                () -> service.startGame(room.getId()));
+
+        assertTrue(ex.getMessage().contains("Could not reach game server at http://game-server"), ex.getMessage());
+        Room stored = service.getRoomById(room.getId());
+        assertEquals(GameStatus.WAITING, stored.getStatus());
+        assertNull(stored.getGameSessionId());
+    }
+
+    @Test
+    void startGameDeletesTheHalfMadeSessionAndPassesOnTheGamesMessageWhenAddingAPlayerFails()
+            throws RoomServiceException {
+        Room room = buildRoom("Alpha");
+        room.getPlayerNames().put("p1", "Alice");
+        room.getGameOptions().put("base", "true");
+        service.createRoom(room);
+        service.publishRoom(room.getId());
+        when(gamesConfig.findById("keezen")).thenReturn(Optional.of(gameDefWithBaseUrl("http://game-server")));
+        when(restTemplate.postForObject(eq("http://game-server/games"), any(), eq(Map.class)))
+                .thenReturn(Map.of("sessionId", "session-1"));
+        byte[] body = "{\"message\": \"Player name is taken\"}".getBytes(StandardCharsets.UTF_8);
+        when(restTemplate.postForObject(eq("http://game-server/games/session-1/players"), any(), eq(Map.class)))
+                .thenThrow(HttpClientErrorException.create(HttpStatus.BAD_REQUEST, "Bad Request",
+                        HttpHeaders.EMPTY, body, StandardCharsets.UTF_8));
+
+        RoomServiceException ex = assertThrows(RoomServiceException.class,
+                () -> service.startGame(room.getId()));
+
+        assertEquals("Player name is taken", ex.getMessage());
+        verify(restTemplate).delete("http://game-server/games/session-1");
+        Room stored = service.getRoomById(room.getId());
+        assertEquals(GameStatus.WAITING, stored.getStatus());
+        assertNull(stored.getGameSessionId());
+    }
+
+    @Test
+    void startGameSendsThePlayersAndTheCallbackToTheGame() throws Exception {
+        Room room = buildRoom("Alpha");
+        room.getPlayerNames().put("p1", "Alice");
+        room.getPlayerProfiles().put("p1", "7");
+        room.getGameOptions().put("base", "true");
+        service.createRoom(room);
+        service.publishRoom(room.getId());
+        when(gamesConfig.findById("keezen")).thenReturn(Optional.of(gameDefWithBaseUrl("http://game-server")));
+        when(spriteSheetsConfig.botProfileIndices()).thenReturn(List.of(40, 41));
+        when(restTemplate.postForObject(eq("http://game-server/games"), any(), eq(Map.class)))
+                .thenReturn(Map.of("sessionId", "session-1"));
+
+        service.startGame(room.getId());
+
+        verify(restTemplate).postForObject("http://game-server/games/session-1/players",
+                Map.of("id", "p1", "name", "Alice", "profilePic", 7), Map.class);
+        verify(restTemplate).postForObject("http://game-server/games/session-1",
+                Map.of("botProfilePics", List.of(40, 41),
+                        "callbackUrl", "http://localhost:4100/rooms/" + room.getId() + "/game-finished"),
+                Void.class);
+        assertEquals("/keezen", service.getRoomById(room.getId()).getGameBaseUrl());
+    }
+
+    @Test
+    void startGameForAnUnknownRoomReturnsNullAndContactsNoGame() throws RoomServiceException {
+        assertNull(service.startGame("no-such-room"));
+        verifyNoInteractions(restTemplate);
     }
 }

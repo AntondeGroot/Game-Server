@@ -63,12 +63,12 @@ class GameFinishedFlowTest {
 
         service = spy(new RoomServiceImpl());
         inject(service, "gamesConfig",        gamesConfig);
-        inject(service, "spriteSheetsConfig", spriteSheetsConfig);
         inject(service, "roomStore",          roomStore);
         inject(service, "restTemplate",       restTemplate);
         inject(service, "sseRegistry",        sseRegistry);
-        inject(service, "roomManager",        roomManager());
-        inject(service, "serverPort",         4100);
+        RoomManager roomManager = roomManager();
+        inject(service, "roomManager",        roomManager);
+        inject(service, "gameSessions",       gameSessions(roomManager));
 
         callbackController = new GamesController();
         inject(callbackController, "roomStore",        roomStore);
@@ -77,6 +77,16 @@ class GameFinishedFlowTest {
 
         lenient().when(spriteSheetsConfig.getSheets()).thenReturn(List.of());
         lenient().doReturn("player-1").when(service).getPlayerIdFromRequest();
+    }
+
+    private GameSessions gameSessions(RoomManager roomManager) throws Exception {
+        GameSessions sessions = new GameSessions();
+        inject(sessions, "rooms",              roomManager);
+        inject(sessions, "gamesConfig",        gamesConfig);
+        inject(sessions, "spriteSheetsConfig", spriteSheetsConfig);
+        inject(sessions, "restTemplate",       restTemplate);
+        inject(sessions, "serverPort",         4100);
+        return sessions;
     }
 
     private RoomManager roomManager() throws Exception {

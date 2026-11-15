@@ -7,19 +7,14 @@ import ADG.Lobby.Room;
 import ADG.Lobby.RoomService;
 import ADG.Lobby.RoomServiceException;
 import ADG.config.GamesConfig;
-import ADG.config.SpriteSheetsConfig;
 import com.google.gwt.user.server.rpc.jakarta.RemoteServiceServlet;
 import jakarta.servlet.annotation.WebServlet;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.server.ResponseStatusException;
@@ -39,19 +34,16 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
     private GameCatalogService gameCatalog;
 
     @Autowired
-    private SpriteSheetsConfig spriteSheetsConfig;
-
-    @Autowired
     private RoomStore roomStore;
-
-    @Value("${server.port:4100}")
-    private int serverPort;
 
     @Autowired
     private RoomSseRegistry sseRegistry;
 
     @Autowired
     private RoomManager roomManager;
+
+    @Autowired
+    private GameSessions gameSessions;
 
     private static final long EMPTY_ROOM_TTL_MS = 15 * 60 * 1000L;
     private static final long INACTIVE_GAME_TTL_MS = 60 * 60 * 1000L;
@@ -234,104 +226,13 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
 
     @Override
     public synchronized Room startGame(String roomId) throws RoomServiceException {
-        logger.debug("Starting game for room: {}", roomId);
-        for (Room room1 : roomStore.rooms) {
-            if (room1.getId().equals(roomId)) {
-
-                if (room1.getGameId() == null || room1.getGameId().isEmpty()) {
-                    throw new RoomServiceException("No game selected. Please select a game before starting.");
-                }
-
-                GameDefinition game = gamesConfig.findById(room1.getGameId())
-                        .orElseThrow(() -> new RoomServiceException("Unknown game: " + room1.getGameId()));
-
-                String baseUrl = game.getBaseUrl();
-                logger.debug("Game ID: {}, Base URL: {}", room1.getGameId(), baseUrl);
-
-                // 0. Enforce minimum players
-                if (room1.getPlayerNames().size() < game.getMinPlayers()) {
-                    throw new RoomServiceException(
-                            "Not enough players. Need at least " + game.getMinPlayers()
-                            + ", but only " + room1.getPlayerNames().size() + " have joined.");
-                }
-
-                // 1. Create a game session
-                // Resolve which options to forward.  When the room's options map is
-                // empty (the user never opened the GameOptions dialog), fall back to
-                // the game server's own declared defaults so the game is never started
-                // with a blank / fully-disabled configuration.
-                HashMap<String, String> optionsToSend = room1.getGameOptions();
-                if (optionsToSend.isEmpty()) {
-                    optionsToSend = fetchDefaultOptions(baseUrl);
-                }
-
-                Map<String, Object> newGameRequest = new HashMap<>();
-                newGameRequest.put("roomName", room1.getName());
-                newGameRequest.put("maxPlayers", room1.getPlayerNames().size());
-                if (!optionsToSend.isEmpty()) {
-                    newGameRequest.put("gameOptions", parseGameOptions(optionsToSend));
-                }
-                Map sessionResponse;
-                try {
-                    String createSessionUrl = baseUrl + "/games";
-                    logger.debug("Creating session at: {}", createSessionUrl);
-                    sessionResponse = restTemplate.postForObject(createSessionUrl, newGameRequest, Map.class);
-                    logger.debug("Session created successfully");
-                } catch (RestClientException e) {
-                    logger.error("Failed to create session: {}", e.getMessage(), e);
-                    throw new RoomServiceException("Could not reach game server at " + baseUrl + ": " + e.getMessage());
-                }
-                String sessionId = sessionResponse.get("sessionId").toString();
-                logger.debug("Session ID: {}", sessionId);
-
-                // 2. Add each player & 3. Start the game — clean up the session on any failure
-                try {
-                    logger.debug("Adding {} players to session", room1.getPlayerNames().size());
-                    for (Map.Entry<String, String> entry : room1.getPlayerNames().entrySet()) {
-                        String playerId = entry.getKey();
-                        String playerName = entry.getValue();
-                        String profilePicStr = room1.getPlayerProfiles().get(playerId);
-                        int profilePic = 0;
-                        if (profilePicStr != null) {
-                            try { profilePic = Integer.parseInt(profilePicStr); } catch (NumberFormatException ignored) {}
-                        }
-                        Map<String, Object> playerRequest = new HashMap<>();
-                        playerRequest.put("id", playerId);
-                        playerRequest.put("name", playerName);
-                        playerRequest.put("profilePic", profilePic);
-                        String playerUrl = baseUrl + "/games/" + sessionId + "/players";
-                        logger.debug("Adding player {} at: {}", playerName, playerUrl);
-                        restTemplate.postForObject(playerUrl, playerRequest, Map.class);
-                    }
-
-                    // 3. Start the game — include shuffled bot profile-pic indices so
-                    //    each bot gets a unique robot avatar from the bot-only sheet.
-                    String startGameUrl = baseUrl + "/games/" + sessionId;
-                    logger.debug("Starting game at: {}", startGameUrl);
-                    Map<String, Object> startRequest = new HashMap<>();
-                    startRequest.put("botProfilePics", botProfileIndices());
-                    startRequest.put("callbackUrl", "http://localhost:" + serverPort + "/rooms/" + roomId + "/game-finished");
-                    restTemplate.postForObject(startGameUrl, startRequest, Void.class);
-                    logger.info("Game started successfully for room: {}", roomId);
-                } catch (RestClientException e) {
-                    logger.error("Error during game start: {}", e.getMessage(), e);
-                    // Attempt to clean up the orphaned session on the game server
-                    try {
-                        restTemplate.delete(baseUrl + "/games/" + sessionId);
-                    } catch (RestClientException ignored) {}
-                    throw new RoomServiceException(extractErrorMessage(e));
-                }
-
-                // 4. Store session info and mark room as playing
-                room1.setGameSessionId(sessionId);
-                room1.setGameBaseUrl("/" + game.getId());
-                room1.setStatus(GameStatus.PLAYING);
-                emitRoomUpdate(roomId);
-                emitLobbyUpdate();
-                return room1;
-            }
+        try {
+            return gameSessions.start(roomId);
+        } catch (ResponseStatusException e) {
+            // The GWT client has always been given null for a room that no longer exists.
+            if (e.getStatusCode().value() == 404) return null;
+            throw new RoomServiceException(e.getReason());
         }
-        return null;
     }
 
     @Override
@@ -538,59 +439,5 @@ public class RoomServiceImpl extends RemoteServiceServlet implements RoomService
         roomStore.gameStateVersions.remove(room.getId());
         roomStore.gameStateVersionTimestamps.remove(room.getId());
         emitRoomUpdate(room.getId());
-    }
-
-    /**
-     * Fetches the game-option definitions from the game server and returns a map
-     * of {@code key → defaultValue} for every option that has a non-null default.
-     * Returns an empty map if the endpoint is unreachable or returns no options,
-     * so the caller can still proceed without options in degraded scenarios.
-     */
-    private HashMap<String, String> fetchDefaultOptions(String baseUrl) {
-        try {
-            GameOption[] options = restTemplate.getForObject(baseUrl + "/game-options", GameOption[].class);
-            if (options == null) return new HashMap<>();
-            HashMap<String, String> defaults = new HashMap<>();
-            for (GameOption opt : options) {
-                if (opt.getDefaultValue() != null) {
-                    defaults.put(opt.getKey(), opt.getDefaultValue());
-                }
-            }
-            return defaults;
-        } catch (Exception e) {
-            logger.warn("Could not fetch default game options from {}: {}", baseUrl, e.getMessage());
-            return new HashMap<>();
-        }
-    }
-
-    private List<Integer> botProfileIndices() {
-        return spriteSheetsConfig.botProfileIndices();
-    }
-
-    private Map<String, Object> parseGameOptions(HashMap<String, String> raw) {
-        Map<String, Object> parsed = new HashMap<>();
-        for (Map.Entry<String, String> entry : raw.entrySet()) {
-            parsed.put(entry.getKey(), parseOptionValue(entry.getValue()));
-        }
-        return parsed;
-    }
-
-    private Object parseOptionValue(String value) {
-        if ("true".equalsIgnoreCase(value)) return true;
-        if ("false".equalsIgnoreCase(value)) return false;
-        try { return Integer.parseInt(value); } catch (NumberFormatException ignored) {}
-        return value;
-    }
-
-    private String extractErrorMessage(RestClientException e) {
-        if (e instanceof HttpClientErrorException hce) {
-            try {
-                Map<?, ?> body = new ObjectMapper().readValue(hce.getResponseBodyAsString(), Map.class);
-                Object msg = body.get("message");
-                if (msg != null) return msg.toString();
-            } catch (Exception ignored) {}
-            return hce.getStatusText();
-        }
-        return e.getMessage();
     }
 }
