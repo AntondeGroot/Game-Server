@@ -16,7 +16,7 @@
     "prepare": "[ -n \"$CI\" ] || (cd .. && git config core.hooksPath client/.husky)"
   },
   "private": true,
-  "packageManager": "npm@11.21.2",
+  "packageManager": "npm@12.2.2",
   "dependencies": {
     "@angular/common": "^22.2.0",
     "@angular/compiler": "^22.2.0",
