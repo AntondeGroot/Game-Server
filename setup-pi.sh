@@ -80,6 +80,12 @@ if [ "$USE_NAMED_TUNNEL" = true ]; then
     INGRESS_BLOCK+="  - hostname: $d
     service: http://localhost:80
 "
+    # An apex domain (one dot, e.g. example.uk) also answers on its www. subdomain.
+    if [[ "$d" != www.* && "$d" =~ ^[^.]+\.[^.]+$ ]]; then
+      INGRESS_BLOCK+="  - hostname: www.$d
+    service: http://localhost:80
+"
+    fi
   done
   if [ -n "$SSH_DOMAIN" ]; then
     INGRESS_BLOCK+="  - hostname: $SSH_DOMAIN
@@ -152,6 +158,20 @@ echo "   Run ./deploy.sh to deploy the application."
 if [ "$USE_NAMED_TUNNEL" = true ]; then
   for d in $DOMAINS; do
     echo "   Public URL: https://$d"
+    if [[ "$d" != www.* && "$d" =~ ^[^.]+\.[^.]+$ ]]; then
+      echo "   Public URL: https://www.$d"
+    fi
+  done
+  echo ""
+  echo "🌐 Each hostname needs a CNAME DNS record in Cloudflare (proxied):"
+  for d in $DOMAINS; do
+    if [[ "$d" != www.* && "$d" =~ ^[^.]+\.[^.]+$ ]]; then
+      # Cloudflare allows a CNAME at the apex ("@") through CNAME flattening.
+      echo "   Add a CNAME DNS record in Cloudflare: @ ($d) → $TUNNEL_ID.cfargotunnel.com"
+      echo "   Add a CNAME DNS record in Cloudflare: www.$d → $TUNNEL_ID.cfargotunnel.com"
+    else
+      echo "   Add a CNAME DNS record in Cloudflare: $d → $TUNNEL_ID.cfargotunnel.com"
+    fi
   done
 else
   echo "   To find your public tunnel URL, run: ./get-tunnel-url.sh"
@@ -160,7 +180,7 @@ fi
 if [ -n "$SSH_DOMAIN" ]; then
   echo ""
   echo "🔑 SSH over Cloudflare Tunnel is configured for: $SSH_DOMAIN"
-  echo "   Add a CNAME DNS record in Cloudflare: $SSH_DOMAIN → <your-tunnel-id>.cfargotunnel.com"
+  echo "   Add a CNAME DNS record in Cloudflare: $SSH_DOMAIN → $TUNNEL_ID.cfargotunnel.com"
   echo ""
   echo "   On your Mac, install cloudflared if you haven't already:"
   echo "     brew install cloudflared"
