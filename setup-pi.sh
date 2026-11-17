@@ -1,8 +1,17 @@
 #!/bin/bash
 set -e
 
-SSH="ssh -i ~/.ssh/pi_deploy_key my-pi"
-SCP="scp -i ~/.ssh/pi_deploy_key"
+# Usage: ./setup-pi.sh [target]   (default: my-pi, falling back to my-pi-ext)
+if [ -n "$1" ]; then
+  TARGET="$1"
+elif ssh -o ConnectTimeout=3 -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectionAttempts=1 my-pi true 2>/dev/null; then
+  TARGET=my-pi
+else
+  echo "⚠️  my-pi unreachable, falling back to my-pi-ext (Cloudflare Tunnel)..."
+  TARGET=my-pi-ext
+fi
+SSH="ssh -i $HOME/.ssh/pi_deploy_key $TARGET"
+SCP="scp -i $HOME/.ssh/pi_deploy_key"
 
 CONFIG_FILE="./deploy.local.conf"
 
@@ -21,6 +30,15 @@ else
   echo "ℹ️  No non-empty $CONFIG_FILE found. Using random trycloudflare tunnel."
 fi
 
+# Through the tunnel, this script's own SSH connection depends on the tunnel config it rewrites.
+# A quick tunnel or a config without SSH_DOMAIN has no SSH route, so the Pi would become
+# unreachable from outside: refuse rather than lock ourselves out.
+if [ "$TARGET" = my-pi-ext ] && { [ "$USE_NAMED_TUNNEL" != true ] || [ -z "$SSH_DOMAIN" ]; }; then
+  echo "❌ Through my-pi-ext this needs a named tunnel with SSH_DOMAIN in $CONFIG_FILE;"
+  echo "   otherwise the new tunnel config has no SSH route and locks you out. Run it at home."
+  exit 1
+fi
+
 echo "📁 Creating directory..."
 $SSH "sudo mkdir -p /opt/gameroom"
 
@@ -34,7 +52,7 @@ echo "📦 Installing nginx..."
 $SSH "sudo apt-get install -y nginx"
 
 echo "⚙️  Configuring nginx..."
-$SCP nginx.conf my-pi:/home/ubuntu/gameroom-nginx.conf
+$SCP nginx.conf "$TARGET:/home/ubuntu/gameroom-nginx.conf"
 $SSH "sudo mv /home/ubuntu/gameroom-nginx.conf /etc/nginx/sites-available/gameroom && \
       sudo ln -sf /etc/nginx/sites-available/gameroom /etc/nginx/sites-enabled/gameroom && \
       sudo rm -f /etc/nginx/sites-enabled/default && \
@@ -61,7 +79,7 @@ EOF"
 $SSH "sudo usermod -aG systemd-journal,adm ubuntu || true"
 $SSH "sudo systemctl daemon-reload && sudo systemctl enable gameroom"
 
-"$(dirname "$0")/setup-tomcat.sh" my-pi
+"$(dirname "$0")/setup-tomcat.sh" "$TARGET"
 
 echo "☁️  Installing cloudflared..."
 $SSH "if ! command -v cloudflared &>/dev/null; then
@@ -103,7 +121,7 @@ $INGRESS_BLOCK
 EOF
 
   $SSH "sudo mkdir -p /etc/cloudflared"
-  $SCP "$TMP_CLOUDFLARED_CONFIG" my-pi:/home/ubuntu/cloudflared-config.yml
+  $SCP "$TMP_CLOUDFLARED_CONFIG" "$TARGET:/home/ubuntu/cloudflared-config.yml"
   rm -f "$TMP_CLOUDFLARED_CONFIG"
 
   $SSH "sudo mv /home/ubuntu/cloudflared-config.yml /etc/cloudflared/config.yml"
@@ -143,13 +161,33 @@ WantedBy=multi-user.target
 EOF"
 fi
 
-$SSH "sudo systemctl daemon-reload && \
-      sudo systemctl enable cloudflared && \
-      sudo systemctl restart cloudflared"
+$SSH "sudo systemctl daemon-reload && sudo systemctl enable cloudflared"
 
 echo "📝 Writing games config..."
-$SCP GameRoom-server/src/main/resources/games.yaml my-pi:/home/ubuntu/games.yaml
+$SCP GameRoom-server/src/main/resources/games.yaml "$TARGET:/home/ubuntu/games.yaml"
 $SSH "sudo mv /home/ubuntu/games.yaml /opt/gameroom/games.yaml"
+
+echo "🔄 Restarting cloudflared..."
+# Last, and detached through systemd-run: through my-pi-ext the restart cuts this SSH connection,
+# and the restart must still happen. Then reconnect (through the restarted tunnel, if that is the
+# route) to check it came back.
+$SSH "sudo systemd-run --on-active=2 --unit=setup-restart-cloudflared-\$(date +%s) --collect systemctl restart cloudflared"
+echo "⏳ Waiting for cloudflared to come back..."
+sleep 5
+cloudflared_up=false
+for _ in $(seq 1 12); do
+  if ssh -i "$HOME/.ssh/pi_deploy_key" -o ConnectTimeout=10 -o BatchMode=yes "$TARGET" \
+      "systemctl is-active --quiet cloudflared" 2>/dev/null; then
+    cloudflared_up=true
+    break
+  fi
+  sleep 5
+done
+if [ "$cloudflared_up" != true ]; then
+  echo "❌ cloudflared did not come back within a minute."
+  echo "   At home: ssh my-pi 'systemctl status cloudflared; journalctl -u cloudflared -n 50'"
+  exit 1
+fi
 
 echo ""
 echo "✅ Pi setup complete."
