@@ -5,7 +5,6 @@ import { LobbyRoomsService } from './lobby-rooms.service';
 @Component({
   imports: [],
   selector: 'app-lobby',
-  styleUrl: './lobby.scss',
   templateUrl: './lobby.html',
 })
 export class Lobby {
