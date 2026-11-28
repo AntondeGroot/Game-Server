@@ -5,5 +5,12 @@
   "extends": [
     "config:recommended"
   ],
-  "reviewers": ["AntondeGroot"]
+  "reviewers": ["AntondeGroot"],
+  "packageRules": [
+    {
+      "description": "Merge non-major updates once the required `ci` check passes; majors stay manual.",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    }
+  ]
 }
